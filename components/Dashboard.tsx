@@ -1,541 +1,322 @@
-// FIX: Implemented the Dashboard component which was previously a placeholder.
-// This component now fetches and manages test results from Firestore,
-// displays statistics, and provides functionality for adding, updating, and deleting results.
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, signOut } from 'firebase/auth';
-import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, serverTimestamp, where } from 'firebase/firestore';
-import { auth, db } from '../services/firebase';
+import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, where, Timestamp } from 'firebase/firestore';
+import { signOut, User } from 'firebase/auth';
+import { db, auth } from '../services/firebase';
 import type { TestResult, MistakeEntry } from '../types';
 import Header from './Header';
-import StatCard from './StatCard';
 import TestResultsTable from './TestResultsTable';
-import Toast from './Toast';
-import Spinner from './Spinner';
-import BookOpenIcon from './icons/BookOpenIcon';
-import UserGroupIcon from './icons/UserGroupIcon';
-import PlusIcon from './icons/PlusIcon';
-import CourseSuccessChart from './CourseSuccessChart';
 import TimeSeriesChart from './TimeSeriesChart';
+import CourseSuccessChart from './CourseSuccessChart';
 import PerformanceCards from './PerformanceCards';
-import ChartModal from './ChartModal';
 import RankingSummary from './RankingSummary';
-import ScopeBadge from './ScopeBadge';
-import CogIcon from './icons/CogIcon';
-import GlobeIcon from './icons/GlobeIcon';
-import UserIcon from './icons/UserIcon';
-import CourseSelect from './CourseSelect';
+import QuickStats from './QuickStats';
 import InsightsCards from './InsightsCards';
+import BadgesBar from './BadgesBar';
 import LevelBadge from './LevelBadge';
+import ScopeBadge, { ScopeType } from './ScopeBadge';
+import StatCard from './StatCard';
+import CourseSelect from './CourseSelect';
 import QuickAddModal from './QuickAddModal';
-import BadgesBar, { type BadgeKey } from './BadgesBar';
-import ConfirmModal from './ConfirmModal';
 import MistakeModal from './MistakeModal';
+import ChartModal from './ChartModal';
+import Toast from './Toast';
+import ConfirmModal from './ConfirmModal';
 import { getCourseTopics } from '../data/topics';
+import type { BadgeKey } from './BadgesBar';
+
+// Modern Icons
+const TrendingUpIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+    <polyline points="17 6 23 6 23 12" />
+  </svg>
+);
+
+const TargetIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <circle cx="12" cy="12" r="10" />
+    <circle cx="12" cy="12" r="6" />
+    <circle cx="12" cy="12" r="2" />
+  </svg>
+);
+
+const FlagIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+    <line x1="4" y1="22" x2="4" y2="15" />
+  </svg>
+);
+
+const AlertTriangleIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
+const BookIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+  </svg>
+);
+
+const BrainIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" />
+    <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />
+  </svg>
+);
+
+const PlusIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <line x1="12" y1="5" x2="12" y2="19" />
+    <line x1="5" y1="12" x2="19" y2="12" />
+  </svg>
+);
 
 interface DashboardProps {
   user: User;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ user }) => {
-  const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [results, setResults] = useState<TestResult[]>([]);
+  const [mistakes, setMistakes] = useState<MistakeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [activeTab, setActiveTab] = useState<'trend' | 'courses' | 'table' | 'heatmap'>('trend');
+  const [scope, setScope] = useState<ScopeType>('self');
   const [selectedCourse, setSelectedCourse] = useState<string>('all');
-  const [pageSize, setPageSize] = useState<number | 'all'>(25);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [sortConfig, setSortConfig] = useState<{ key: keyof TestResult; direction: 'ascending' | 'descending' } | null>(null);
-  const [isCompact, setIsCompact] = useState<boolean>(true);
-  const [showOnlyMyResults, setShowOnlyMyResults] = useState<boolean>(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalContent, setModalContent] = useState<React.ReactNode | null>(null);
-  const [scope, setScope] = useState<'self' | 'school'>('school');
-  // Hata Defteri modal state
-  const [isMistakeOpen, setIsMistakeOpen] = useState(false);
-  const [mistakeResult, setMistakeResult] = useState<TestResult | null>(null);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
-  const [earnedBadges, setEarnedBadges] = useState<BadgeKey[]>(() => {
-    try {
-      const raw = localStorage.getItem('earned_badges');
-      return raw ? (JSON.parse(raw) as BadgeKey[]) : [];
-    } catch { return []; }
-  });
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  // Mistakes (Hata Defteri)
-  const [mistakes, setMistakes] = useState<MistakeEntry[]>([]);
-  const [mistakeFilterCourse, setMistakeFilterCourse] = useState<string>('all');
-  const [mistakeFilterTopic, setMistakeFilterTopic] = useState<string>('all');
-  const [mistakeFilterStatus, setMistakeFilterStatus] = useState<'all' | 'open' | 'reviewed' | 'archived'>('all');
+  const [mistakeModal, setMistakeModal] = useState<{ isOpen: boolean; result?: TestResult }>({ isOpen: false });
+  const [chartModal, setChartModal] = useState<{ isOpen: boolean; type?: 'timeseries' | 'courses' }>({ isOpen: false });
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; id?: string; message?: string }>({ isOpen: false });
+  const [sortConfig, setSortConfig] = useState<{ key: keyof TestResult; direction: 'ascending' | 'descending' } | null>(null);
 
-  // Goals (personalized): daily/weekly targets with localStorage persistence
-  const [dailyTarget, setDailyTarget] = useState<number>(() => {
-    try {
-      const raw = localStorage.getItem('goals_v1');
-      if (!raw) return 1;
-      const parsed = JSON.parse(raw);
-      return typeof parsed.daily === 'number' ? parsed.daily : 1;
-    } catch { return 1; }
-  });
-  const [weeklyTarget, setWeeklyTarget] = useState<number>(() => {
-    try {
-      const raw = localStorage.getItem('goals_v1');
-      if (!raw) return 3;
-      const parsed = JSON.parse(raw);
-      return typeof parsed.weekly === 'number' ? parsed.weekly : 3;
-    } catch { return 3; }
-  });
-  const [isGoalsOpen, setIsGoalsOpen] = useState(false);
-  const [tmpDaily, setTmpDaily] = useState<string>('');
-  const [tmpWeekly, setTmpWeekly] = useState<string>('');
-
-  const toDateSafe = (v: any): Date | null => {
-    if (!v) return null;
-    if (typeof v.toDate === 'function') return v.toDate();
-    if (typeof v === 'number') return new Date(v);
-    if (typeof v === 'string') {
-      const d = new Date(v);
-      return isNaN(d.getTime()) ? null : d;
-    }
-    return null;
-  };
-
-  const userDailyWeekly = useMemo(() => {
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    let daily = 0;
-    let weekly = 0;
-    for (const r of testResults) {
-      if (r.kullaniciId !== user.uid) continue;
-      const d = toDateSafe((r as any).createdAt);
-      if (!d) continue;
-      if (d >= startOfDay) daily += 1;
-      if (d >= sevenDaysAgo) weekly += 1;
-    }
-    return { daily, weekly };
-  }, [testResults, user.uid]);
-
-  // Simple points and level progress
-  const userTestCount = useMemo(() => testResults.filter(r => r.kullaniciId === user.uid).length, [testResults, user.uid]);
-  const userPoints = useMemo(() => userTestCount * 10, [userTestCount]);
-  type LevelInfo = { name: 'Giriş' | 'Orta' | 'İleri'; min: number; max: number | null };
-  const levelInfo: LevelInfo = useMemo(() => {
-    if (userPoints >= 200) return { name: 'İleri', min: 200, max: null };
-    if (userPoints >= 100) return { name: 'Orta', min: 100, max: 200 };
-    return { name: 'Giriş', min: 0, max: 100 };
-  }, [userPoints]);
-  const levelProgressPct = useMemo(() => {
-    if (levelInfo.max == null) return 100;
-    const span = levelInfo.max - levelInfo.min;
-    const within = Math.max(0, Math.min(span, userPoints - levelInfo.min));
-    return Math.round((within / span) * 100);
-  }, [levelInfo, userPoints]);
-
-  // Subscribe to user's mistakes (hata defteri)
-  useEffect(() => {
-    if (!user?.uid) return;
-    const q = query(
-      collection(db, 'mistakes'),
-      // Security rules require owner-only; filter by current user
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      where('kullaniciId', '==', user.uid)
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      const items: MistakeEntry[] = [];
-      snap.forEach((d) => {
-        const data = d.data() as any;
-        // Already filtered by query
-        items.push({
-          id: d.id,
-          kullaniciId: data.kullaniciId,
-          testResultId: data.testResultId,
-          dersAdi: data.dersAdi,
-          topics: data.topics || [],
-          note: data.note || '',
-          imageUrl: data.imageUrl || undefined,
-          createdAt: data.createdAt,
-          nextReviewAt: data.nextReviewAt,
-          status: data.status || 'open',
-        });
-      });
-      setMistakes(items);
-    });
-    return () => unsub();
-  }, [user?.uid]);
-
-  const mistakeCourses = useMemo(() => {
-    const s = new Set<string>();
-    mistakes.forEach(m => s.add(m.dersAdi));
-    return ['all', ...Array.from(s)];
-  }, [mistakes]);
-
-  const mistakeTopics = useMemo(() => {
-    if (mistakeFilterCourse === 'all') return ['all'];
-    const s = new Set<string>();
-    mistakes.filter(m => m.dersAdi === mistakeFilterCourse).forEach(m => (m.topics || []).forEach(t => s.add(t)));
-    return ['all', ...Array.from(s)];
-  }, [mistakes, mistakeFilterCourse]);
-
-  const filteredMistakes = useMemo(() => {
-    return mistakes.filter(m => {
-      if (mistakeFilterCourse !== 'all' && m.dersAdi !== mistakeFilterCourse) return false;
-      if (mistakeFilterTopic !== 'all' && !(m.topics || []).includes(mistakeFilterTopic)) return false;
-      if (mistakeFilterStatus !== 'all' && m.status !== mistakeFilterStatus) return false;
-      return true;
-    });
-  }, [mistakes, mistakeFilterCourse, mistakeFilterTopic, mistakeFilterStatus]);
-
-  const updateMistakeStatus = async (id: string, status: 'open' | 'reviewed' | 'archived') => {
-    try {
-      await updateDoc(doc(db, 'mistakes', id), { status });
-      setToast({ message: 'Durum güncellendi.', type: 'success' });
-    } catch (e) {
-      console.error('update mistake status', e);
-      setToast({ message: 'Durum güncellenemedi.', type: 'error' });
-    }
-  };
-
-  // (moved below) userResults and scopeResults defined later alongside stats
-
-  // Badges: first_test, five_tests, seven_day_streak
-  const computedBadges = useMemo<BadgeKey[]>(() => {
-    const out: BadgeKey[] = [];
-    const userCount = testResults.filter(r => r.kullaniciId === user.uid).length;
-    if (userCount >= 1) out.push('first_test');
-    if (userCount >= 5) out.push('five_tests');
-    if (userDailyWeekly.weekly >= 7) out.push('seven_day_streak');
-    return out;
-  }, [testResults, user.uid, userDailyWeekly]);
-
-  useEffect(() => {
-    // detect newly earned badges
-    const newly = computedBadges.filter(b => !earnedBadges.includes(b));
-    if (newly.length > 0) {
-      setEarnedBadges(prev => {
-        const next = Array.from(new Set([...prev, ...newly]));
-        try { localStorage.setItem('earned_badges', JSON.stringify(next)); } catch {}
-        return next;
-      });
-      // simple toast for the first new badge in this batch
-      const first = newly[0];
-      setToast({ message: `Tebrikler! Yeni rozet kazandın (${first}).`, type: 'success' });
-    }
-  }, [computedBadges]);
-
-  useEffect(() => {
-    if (earnedBadges.length === 0) return;
-    try {
-      localStorage.setItem('earned_badges', JSON.stringify(earnedBadges));
-    } catch {}
-  }, [earnedBadges]);
-
-  // Points & Level (simple model): each test +10, daily goal met +20, weekly goal met +50
-  const userLevel: 'giris' | 'orta' | 'ileri' = useMemo(() => {
-    if (userPoints >= 300) return 'ileri';
-    if (userPoints >= 100) return 'orta';
-    return 'giris';
-  }, [userPoints]);
-
-  const openModal = (chart: React.ReactNode) => {
-    setModalContent(chart);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => setIsModalOpen(false);
-
+  // Data fetching
   useEffect(() => {
     const q = query(collection(db, 'testSonuclari'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const results: TestResult[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        results.push({
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data: TestResult[] = [];
+      snapshot.forEach((doc) => {
+        const docData = doc.data();
+        data.push({
           id: doc.id,
-          dersAdi: data.dersAdi,
-          dogruSayisi: data.dogruSayisi,
-          yanlisSayisi: data.yanlisSayisi,
-          bosSayisi: data.bosSayisi || 0,
-          topics: data.topics || [],
-          kullaniciId: data.kullaniciId,
-          kullaniciEmail: data.kullaniciEmail,
-          createdAt: data.createdAt
+          dersAdi: docData.dersAdi,
+          dogruSayisi: docData.dogruSayisi,
+          yanlisSayisi: docData.yanlisSayisi,
+          bosSayisi: docData.bosSayisi || 0,
+          kullaniciId: docData.kullaniciId,
+          kullaniciEmail: docData.kullaniciEmail,
+          createdAt: docData.createdAt,
+          topics: docData.topics || [],
         });
       });
-      setTestResults(results);
+      setResults(data);
       setLoading(false);
-    }, (error) => {
-      console.error("Error fetching test results: ", error);
-      setLoading(false);
-      setToast({ message: 'Sonuçlar yüklenirken bir hata oluştu.', type: 'error' });
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Load persisted toolbar settings
+  // Mistakes data
   useEffect(() => {
-    try {
-      const savedScope = localStorage.getItem('dashboard_scope');
-      if (savedScope === 'self' || savedScope === 'school') {
-        setScope(savedScope);
-      }
-      const savedCourse = localStorage.getItem('dashboard_course');
-      if (savedCourse) {
-        setSelectedCourse(savedCourse);
-      }
-    } catch {}
-  }, []);
+    const q = query(collection(db, 'mistakes'), where('kullaniciId', '==', user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data: MistakeEntry[] = [];
+      snapshot.forEach((doc) => {
+        const docData = doc.data();
+        data.push({
+          id: doc.id,
+          kullaniciId: docData.kullaniciId,
+          testResultId: docData.testResultId,
+          dersAdi: docData.dersAdi,
+          topics: docData.topics || [],
+          note: docData.note || '',
+          imageUrl: docData.imageUrl,
+          createdAt: docData.createdAt,
+          nextReviewAt: docData.nextReviewAt,
+          status: docData.status || 'open',
+        });
+      });
+      setMistakes(data);
+    });
 
-  // Persist scope & course changes
-  useEffect(() => {
-    try { localStorage.setItem('dashboard_scope', scope); } catch {}
-  }, [scope]);
-  useEffect(() => {
-    try { localStorage.setItem('dashboard_course', selectedCourse); } catch {}
-  }, [selectedCourse]);
+    return () => unsubscribe();
+  }, [user.uid]);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setToast({ message: 'Başarıyla çıkış yapıldı.', type: 'success' });
-    } catch (error) {
-      console.error('Error signing out: ', error);
-      setToast({ message: 'Çıkış yapılırken bir hata oluştu.', type: 'error' });
+  // Filtered data based on scope
+  const filteredData = useMemo(() => {
+    return scope === 'self' ? results.filter(r => r.kullaniciId === user.uid) : results;
+  }, [results, scope, user.uid]);
+
+  // Course options
+  const courseOptions = useMemo(() => {
+    const courses = Array.from(new Set(filteredData.map(r => r.dersAdi))).sort();
+    return ['all', ...courses];
+  }, [filteredData]);
+
+  // User statistics
+  const userStats = useMemo(() => {
+    const userData = results.filter(r => r.kullaniciId === user.uid);
+    if (userData.length === 0) return { avgScore: 0, totalTests: 0, recentChange: 0, targetRemaining: 480 };
+
+    const totalScore = userData.reduce((sum, r) => {
+      const total = r.dogruSayisi + r.yanlisSayisi + r.bosSayisi;
+      const net = r.dogruSayisi - r.yanlisSayisi / 4;
+      return sum + (total > 0 ? (Math.max(0, net) / total) * 100 : 0);
+    }, 0);
+    
+    const avgScore = Math.round(totalScore / userData.length);
+    
+    // Recent 5 vs previous 5 comparison
+    const recent5 = userData.slice(0, 5);
+    const previous5 = userData.slice(5, 10);
+    
+    let recentChange = 0;
+    if (recent5.length > 0 && previous5.length > 0) {
+      const recentAvg = recent5.reduce((sum, r) => {
+        const total = r.dogruSayisi + r.yanlisSayisi + r.bosSayisi;
+        const net = r.dogruSayisi - r.yanlisSayisi / 4;
+        return sum + (total > 0 ? (Math.max(0, net) / total) * 100 : 0);
+      }, 0) / recent5.length;
+      
+      const previousAvg = previous5.reduce((sum, r) => {
+        const total = r.dogruSayisi + r.yanlisSayisi + r.bosSayisi;
+        const net = r.dogruSayisi - r.yanlisSayisi / 4;
+        return sum + (total > 0 ? (Math.max(0, net) / total) * 100 : 0);
+      }, 0) / previous5.length;
+      
+      recentChange = recentAvg - previousAvg;
     }
-  };
 
-  const handleAddResult = async (dersAdi: string, dogruSayisi: number, yanlisSayisi: number, bosSayisi: number, topics: string[] = []) => {
-    if (!user) return;
+    return {
+      avgScore,
+      totalTests: userData.length,
+      recentChange,
+      targetRemaining: Math.max(0, 480 - avgScore)
+    };
+  }, [results, user.uid]);
+
+  // Risk calculation
+  const riskLevel = useMemo(() => {
+    const { avgScore, recentChange } = userStats;
+    if (avgScore >= 400 && recentChange >= 0) return { level: 'Düşük', value: 25, color: '#48BB78' };
+    if (avgScore >= 350 && recentChange >= -5) return { level: 'Orta', value: 50, color: '#F6AD55' };
+    return { level: 'Yüksek', value: 75, color: '#F56565' };
+  }, [userStats]);
+
+  // Badge calculation
+  const earnedBadges = useMemo((): BadgeKey[] => {
+    const userData = results.filter(r => r.kullaniciId === user.uid);
+    const badges: BadgeKey[] = [];
+    
+    if (userData.length >= 1) badges.push('first_test');
+    if (userData.length >= 5) badges.push('five_tests');
+    
+    // 7-day streak check
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dateSet = new Set<string>();
+    userData.forEach(r => {
+      if (r.createdAt) {
+        const dt = new Date(r.createdAt.toDate());
+        const key = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).toISOString().slice(0, 10);
+        dateSet.add(key);
+      }
+    });
+    
+    let streak = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().slice(0, 10);
+      if (dateSet.has(key)) streak++; else break;
+    }
+    
+    if (streak >= 7) badges.push('seven_day_streak');
+    return badges;
+  }, [results, user.uid]);
+
+  // Event handlers
+  const handleAddResult = async (dersAdi: string, dogruSayisi: number, yanlisSayisi: number, bosSayisi: number, topics: string[]) => {
     try {
       await addDoc(collection(db, 'testSonuclari'), {
         dersAdi,
         dogruSayisi,
         yanlisSayisi,
         bosSayisi,
-        topics,
         kullaniciId: user.uid,
         kullaniciEmail: user.email,
-        createdAt: serverTimestamp()
+        createdAt: Timestamp.now(),
+        topics: topics || [],
       });
-      setToast({ message: 'Test sonucu başarıyla eklendi.', type: 'success' });
+      setToast({ message: 'Test sonucu başarıyla eklendi!', type: 'success' });
       setIsAdding(false);
     } catch (error) {
-      console.error('Error adding test result: ', error);
-      setToast({ message: 'Test sonucu eklenirken bir hata oluştu.', type: 'error' });
+      setToast({ message: 'Test sonucu eklenirken hata oluştu.', type: 'error' });
     }
   };
 
-  const handleUpdateResult = async (id: string, dersAdi: string, dogruSayisi: number, yanlisSayisi: number, bosSayisi: number, topics: string[] = []) => {
-    const docRef = doc(db, 'testSonuclari', id);
+  const handleUpdateResult = async (id: string, dersAdi: string, dogruSayisi: number, yanlisSayisi: number, bosSayisi: number, topics: string[]) => {
     try {
-      await updateDoc(docRef, {
+      await updateDoc(doc(db, 'testSonuclari', id), {
         dersAdi,
         dogruSayisi,
         yanlisSayisi,
         bosSayisi,
-        topics
+        topics: topics || [],
       });
-      setToast({ message: 'Sonuç başarıyla güncellendi.', type: 'success' });
+      setToast({ message: 'Test sonucu başarıyla güncellendi!', type: 'success' });
     } catch (error) {
-      console.error('Error updating document: ', error);
-      setToast({ message: 'Sonuç güncellenirken bir hata oluştu.', type: 'error' });
+      setToast({ message: 'Test sonucu güncellenirken hata oluştu.', type: 'error' });
     }
   };
 
   const handleDeleteResult = (id: string) => {
-    setConfirmDeleteId(id);
-  };
-
-  const handleAddMistake = (result: TestResult) => {
-    setMistakeResult(result);
-    setIsMistakeOpen(true);
-  };
-
-  const handleSaveMistake = async ({ topic, note, imageUrl }: { topic: string | null; note: string; imageUrl?: string }) => {
-    if (!user || !mistakeResult) return;
-    try {
-      await addDoc(collection(db, 'mistakes'), {
-        kullaniciId: user.uid,
-        dersAdi: mistakeResult.dersAdi,
-        topics: topic ? [topic] : [],
-        note: note || '',
-        imageUrl: imageUrl || null,
-        testResultId: mistakeResult.id,
-        status: 'open',
-        createdAt: serverTimestamp(),
-        nextReviewAt: null,
-      });
-      setToast({ message: 'Hata defterine eklendi.', type: 'success' });
-    } catch (e) {
-      console.error('Error adding mistake:', e);
-      setToast({ message: 'Hata defterine eklenemedi.', type: 'error' });
-    } finally {
-      setIsMistakeOpen(false);
-      setMistakeResult(null);
-    }
+    setConfirmModal({
+      isOpen: true,
+      id,
+      message: 'Bu test sonucunu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.'
+    });
   };
 
   const confirmDelete = async () => {
-    if (!confirmDeleteId) return;
+    if (!confirmModal.id) return;
     try {
-      await deleteDoc(doc(db, 'testSonuclari', confirmDeleteId));
-        setToast({ message: 'Sonuç başarıyla silindi.', type: 'success' });
-    } catch (err) {
-      console.error('Error deleting document:', err);
-      setToast({ message: 'Silme işlemi başarısız.', type: 'error' });
-    } finally {
-      setConfirmDeleteId(null);
+      await deleteDoc(doc(db, 'testSonuclari', confirmModal.id));
+      setToast({ message: 'Test sonucu başarıyla silindi!', type: 'success' });
+    } catch (error) {
+      setToast({ message: 'Test sonucu silinirken hata oluştu.', type: 'error' });
     }
+    setConfirmModal({ isOpen: false });
   };
 
-  // Filter results for table display (controlled by checkbox)
-  const displayResults = useMemo(() => {
-    if (showOnlyMyResults) {
-      return testResults.filter((r) => r.kullaniciId === user.uid);
-    }
-    return testResults;
-  }, [testResults, user.uid, showOnlyMyResults]);
+  const handleAddMistake = (result: TestResult) => {
+    setMistakeModal({ isOpen: true, result });
+  };
 
-  const courseOptions = useMemo(() => {
-    const courses = new Set(displayResults.map(r => r.dersAdi));
-    return ['all', ...Array.from(courses)];
-  }, [displayResults]);
-
-  // Always show user's own data for stats and charts (personalized dashboard)
-  const userResults = useMemo(() => {
-    return testResults.filter((r) => r.kullaniciId === user.uid);
-  }, [testResults, user.uid]);
-
-  // Scope-based dataset for charts (self vs school-wide)
-  const scopeResults = useMemo(() => {
-    return scope === 'self' ? userResults : testResults;
-  }, [scope, userResults, testResults]);
-
-  const filteredForStats = useMemo(() => {
-    if (selectedCourse === 'all') {
-      return scopeResults;
-    }
-    return scopeResults.filter(r => r.dersAdi === selectedCourse);
-  }, [scopeResults, selectedCourse]);
-
-  const stats = useMemo(() => {
-    const totalTests = filteredForStats.length;
-    const totalCorrect = filteredForStats.reduce((sum, r) => sum + (r.dogruSayisi || 0), 0);
-    const totalWrong = filteredForStats.reduce((sum, r) => sum + (r.yanlisSayisi || 0), 0);
-    const totalEmpty = filteredForStats.reduce((sum, r) => sum + (r.bosSayisi || 0), 0);
-    const totalQuestions = totalCorrect + totalWrong + totalEmpty;
-    const netCorrect = totalCorrect - (totalWrong / 4);
-    const overallSuccessRate = totalQuestions > 0 ? Math.round((Math.max(0, netCorrect) / totalQuestions) * 100) : 0;
+  const handleSaveMistake = async (payload: { topic: string | null; note: string; imageUrl?: string }) => {
+    if (!mistakeModal.result) return;
     
-    return { totalTests, overallSuccessRate, totalQuestions };
-  }, [filteredForStats]);
-
-  // KPI helpers for Dashboard (user scope)
-  const userChrono = useMemo(() => userResults.slice().sort((a,b)=>{
-    const ta = (a as any).createdAt?.toMillis ? (a as any).createdAt.toMillis() : 0;
-    const tb = (b as any).createdAt?.toMillis ? (b as any).createdAt.toMillis() : 0;
-    return ta - tb;
-  }), [userResults]);
-  const lastFive = useMemo(() => userChrono.slice(-5), [userChrono]);
-  const avgLast5Net = useMemo(() => {
-    if (lastFive.length === 0) return 0;
-    const nets = lastFive.map(r => Math.max(0, (r.dogruSayisi||0) - (r.yanlisSayisi||0)/4));
-    return Math.round((nets.reduce((a,b)=>a+b,0) / nets.length) * 100) / 100;
-  }, [lastFive]);
-  const lastNet = useMemo(() => {
-    const r = userChrono[userChrono.length - 1];
-    if (!r) return 0;
-    return Math.round((Math.max(0, (r.dogruSayisi||0) - (r.yanlisSayisi||0)/4)) * 100) / 100;
-  }, [userChrono]);
-
-  // Weak branches (average net per course) and quick task creation
-  const branchAverages = useMemo(() => {
-    if (userResults.length === 0) return {} as Record<string, number>;
-    const sum: Record<string, { total: number; count: number; max: number }> = {};
-    userResults.forEach((r) => {
-      const totalQuestions = (r.dogruSayisi||0) + (r.yanlisSayisi||0) + (r.bosSayisi||0);
-      const max = r.dersAdi === 'Türkçe' || r.dersAdi === 'Matematik' || r.dersAdi === 'Fen Bilgisi' ? 20 : 10;
-      const net = Math.max(0, (r.dogruSayisi||0) - (r.yanlisSayisi||0)/4);
-      if (!sum[r.dersAdi]) sum[r.dersAdi] = { total: 0, count: 0, max };
-      sum[r.dersAdi].total += net;
-      sum[r.dersAdi].count += 1;
-    });
-    const out: Record<string, number> = {};
-    Object.keys(sum).forEach(k => {
-      out[k] = sum[k].count ? (sum[k].total / sum[k].count) : 0;
-    });
-    return out;
-  }, [userResults]);
-  const weakestThree = useMemo(() => {
-    return Object.entries(branchAverages).sort((a,b)=> a[1]-b[1]).slice(0,3);
-  }, [branchAverages]);
-
-  const handleCreateQuickTask = async (branch: string) => {
-    if (!user?.uid) return;
     try {
-      await addDoc(collection(db, 'users', user.uid, 'tasks'), {
-        title: `${branch}: 15 soru (hızlı pratik)`,
-        branch,
-        type: 'practice',
-        target: 15,
-        progress: 0,
+      await addDoc(collection(db, 'mistakes'), {
+        kullaniciId: user.uid,
+        testResultId: mistakeModal.result.id,
+        dersAdi: mistakeModal.result.dersAdi,
+        topics: payload.topic ? [payload.topic] : [],
+        note: payload.note,
+        imageUrl: payload.imageUrl,
+        createdAt: Timestamp.now(),
         status: 'open',
-        createdAt: serverTimestamp(),
       });
-      setToast({ message: 'Görev oluşturuldu.', type: 'success' });
-    } catch (e) {
-      console.error('create task', e);
-      setToast({ message: 'Görev oluşturulamadı.', type: 'error' });
+      setToast({ message: 'Hata defterine başarıyla eklendi!', type: 'success' });
+    } catch (error) {
+      setToast({ message: 'Hata defterine eklenirken hata oluştu.', type: 'error' });
     }
   };
-
-  // Mini Leaderboard (school scope): top 5 by last-5 average net
-  type LeaderRow = { userId: string; email: string; avgLast5: number };
-  const leaderboard = useMemo<LeaderRow[]>(() => {
-    if (scope !== 'school') return [];
-    const byUser: Record<string, { email: string; tests: TestResult[] }> = {};
-    testResults.forEach((r) => {
-      const key = r.kullaniciId;
-      if (!byUser[key]) byUser[key] = { email: r.kullaniciEmail || '—', tests: [] };
-      byUser[key].tests.push(r);
-    });
-    const rows: LeaderRow[] = Object.entries(byUser).map(([uid, v]) => {
-      const chrono = v.tests.slice().sort((a,b)=>{
-        const ta = (a as any).createdAt?.toMillis ? (a as any).createdAt.toMillis() : 0;
-        const tb = (b as any).createdAt?.toMillis ? (b as any).createdAt.toMillis() : 0;
-        return ta - tb;
-      });
-      const last5 = chrono.slice(-5);
-      const nets = last5.map(r => Math.max(0, (r.dogruSayisi||0) - (r.yanlisSayisi||0)/4));
-      const avg5 = nets.length ? (nets.reduce((a,b)=>a+b,0) / nets.length) : 0;
-      return { userId: uid, email: v.email || '—', avgLast5: Math.round(avg5 * 100) / 100 };
-    });
-    rows.sort((a,b)=> b.avgLast5 - a.avgLast5);
-    return rows.slice(0, 5);
-  }, [scope, testResults]);
-
-  // Branch target bars (per user, localStorage)
-  type BranchTargets = Record<string, number>;
-  const [branchTargets, setBranchTargets] = useState<BranchTargets>(() => {
-    try {
-      const raw = localStorage.getItem('branch_targets');
-      if (raw) return JSON.parse(raw);
-    } catch {}
-    return { 'Türkçe': 15, 'Matematik': 15, 'Fen Bilgisi': 15, 'Sosyal Bilgiler': 8, 'Din Kültürü': 8, 'İngilizce': 8 } as BranchTargets;
-  });
-  useEffect(() => {
-    try { localStorage.setItem('branch_targets', JSON.stringify(branchTargets)); } catch {}
-  }, [branchTargets]);
-  const [isTargetsOpen, setIsTargetsOpen] = useState(false);
-  const [tmpTargets, setTmpTargets] = useState<BranchTargets>(branchTargets);
-  const openTargets = () => { setTmpTargets(branchTargets); setIsTargetsOpen(true); };
-  const saveTargets = () => { setBranchTargets(tmpTargets); setIsTargetsOpen(false); setToast({ message: 'Branş hedefleri güncellendi.', type: 'success' }); };
-
-  // Use display data for all components
-  const tableResults = useMemo(() => {
-    return displayResults;
-  }, [displayResults]);
 
   const requestSort = (key: keyof TestResult) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -546,485 +327,316 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   };
 
   const sortedResults = useMemo(() => {
-    let sortableItems = [...tableResults];
-    if (sortConfig !== null) {
-      sortableItems.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) {
-          return sortConfig.direction === 'ascending' ? -1 : 1;
-        }
-        if (a[sortConfig.key] > b[sortConfig.key]) {
-          return sortConfig.direction === 'ascending' ? 1 : -1;
-        }
-        return 0;
-      });
-    }
-    return sortableItems;
-  }, [tableResults, sortConfig]);
-
-  // Pagination logic
-  const totalResults = sortedResults.length;
-  const totalPages = pageSize === 'all' ? 1 : Math.ceil(totalResults / pageSize);
-  
-  const paginatedResults = useMemo(() => {
-    if (pageSize === 'all') {
-      return sortedResults;
-    }
-    const startIndex = (currentPage - 1) * pageSize;
-    return sortedResults.slice(startIndex, startIndex + pageSize);
-  }, [sortedResults, currentPage, pageSize]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [pageSize, sortConfig]);
-
-  // Sync table user-only filter with scope selection
-  useEffect(() => {
-    if (scope === 'school') {
-      setShowOnlyMyResults(false);
-    } else {
-      setShowOnlyMyResults(true);
-    }
-  }, [scope]);
-
+    if (!sortConfig) return filteredData;
+    
+    return [...filteredData].sort((a, b) => {
+      const aValue = a[sortConfig.key];
+      const bValue = b[sortConfig.key];
+      
+      if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredData, sortConfig]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <Spinner />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        <Header user={user} onLogout={() => signOut(auth)} />
+        <div className="flex items-center justify-center h-96">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      <Header user={user} onLogout={handleLogout} />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      <Header user={user} onLogout={() => signOut(auth)} />
       
-      <main className="container mx-auto max-w-6xl px-3 sm:px-4 lg:px-6 py-3">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
+      <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        {/* Header Section */}
+        <div className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-                <h1 className="text-lg font-bold text-gray-900">Test Takibi</h1>
-                <p className="text-gray-500 text-xs">Test sonuçlarınızı yönetin ve analiz edin</p>
+              <h1 className="text-3xl font-bold text-slate-900 mb-2">Öğrenci Performans Paneli</h1>
+              <p className="text-slate-600">Akademik gelişiminizi takip edin ve hedeflerinize ulaşın</p>
             </div>
-
-        {/* Compact Goals + Badges Strip (sticky) */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm mb-3 sticky top-2 z-20">
-          <div className="flex items-center gap-2 p-1.5 overflow-x-auto">
-            <div className="hidden sm:block shrink-0">
-              <LevelBadge level={userLevel} compact />
-            </div>
-            {/* Level progress bar */}
-            <div className="hidden sm:flex items-center gap-1 text-[10px] text-gray-600">
-              <span>{levelInfo.name}</span>
-              <div className="w-24 h-1 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-1 bg-emerald-500" style={{ width: `${levelProgressPct}%` }} />
-              </div>
-              <span>{userPoints}p</span>
-            </div>
-            <div className="hidden sm:block w-px h-4 bg-gray-200" />
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-gray-600">Günlük</span>
-                <div className="w-16 h-1 bg-gray-100 rounded-full overflow-hidden">
-                  <div className={`h-1 ${userDailyWeekly.daily >= dailyTarget ? 'bg-emerald-500' : 'bg-emerald-300'}`} style={{ width: `${Math.min(100, userDailyWeekly.daily / dailyTarget * 100)}%` }} />
-                </div>
-                <span className="text-[10px] text-gray-700">{Math.min(userDailyWeekly.daily, dailyTarget)}/{dailyTarget}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-gray-600">Haftalık</span>
-                <div className="w-16 h-1 bg-gray-100 rounded-full overflow-hidden">
-                  <div className={`h-1 ${userDailyWeekly.weekly >= weeklyTarget ? 'bg-sky-500' : 'bg-sky-300'}`} style={{ width: `${Math.min(100, userDailyWeekly.weekly / weeklyTarget * 100)}%` }} />
-                </div>
-                <span className="text-[10px] text-gray-700">{Math.min(userDailyWeekly.weekly, weeklyTarget)}/{weeklyTarget}</span>
-              </div>
-        </div>
-            <div className="w-px h-4 bg-gray-200" />
-            <BadgesBar earned={earnedBadges} showLocked={false} />
-            <div className="w-px h-4 bg-gray-200" />
-            {/* Scope toggle - always visible */}
-            <div className="inline-flex items-center rounded-full bg-gray-50 border border-gray-200 p-0.5">
+            <div className="flex items-center gap-3">
               <button
-                type="button"
-                title="Kendim"
-                aria-label="Kendim"
-                className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded-full ${scope === 'self' ? 'bg-white text-emerald-700 border border-emerald-200 shadow-sm' : 'text-gray-700'}`}
-                onClick={() => setScope('self')}
+                onClick={() => setIsQuickAddOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm"
               >
-                <UserIcon className="h-3 w-3" />
-                <span>Kendim</span>
+                <PlusIcon className="h-4 w-4" />
+                Hızlı Ekle
               </button>
-              <button
-                type="button"
-                title="Okul geneli"
-                aria-label="Okul geneli"
-                className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded-full ${scope === 'school' ? 'bg-white text-sky-700 border border-sky-200 shadow-sm' : 'text-gray-700'}`}
-                onClick={() => setScope('school')}
-              >
-                <GlobeIcon className="h-3 w-3" />
-                <span>Okul geneli</span>
-              </button>
+              <div className="flex items-center bg-white rounded-lg border border-slate-200 p-1">
+                <button
+                  onClick={() => setScope('self')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    scope === 'self' 
+                      ? 'bg-blue-100 text-blue-700' 
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Kendim
+                </button>
+                <button
+                  onClick={() => setScope('school')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    scope === 'school' 
+                      ? 'bg-blue-100 text-blue-700' 
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Okul Geneli
+                </button>
+              </div>
             </div>
-            {/* Goals settings */}
-            <button
-              type="button"
-              className="ml-auto inline-flex items-center justify-center p-1.5 rounded-md border border-gray-200 hover:bg-gray-50"
-              title="Hedefleri düzenle"
-              onClick={() => { setTmpDaily(String(dailyTarget)); setTmpWeekly(String(weeklyTarget)); setIsGoalsOpen(true); }}
-            >
-              <CogIcon />
-            </button>
           </div>
         </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsAdding(true)}
-                disabled={isAdding}
-                className="flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white font-medium py-1 px-2.5 rounded-md transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs"
-              >
-                <PlusIcon />
-                Yeni Test
-              </button>
-            </div>
-        </div>
 
-        {/* Course Filter */}
-        {displayResults.length > 0 && courseOptions.length > 1 && (
-          <div className="bg-white p-2.5 rounded-lg border border-gray-200 shadow-sm mb-3">
-            <div className="flex items-center gap-2">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatCard
+            title="Ortalama Puan"
+            value={userStats.avgScore}
+            icon={<TargetIcon className="h-4 w-4" />}
+            badgeLabel={<ScopeBadge scope="self" />}
+            infoTitle="Son 20 test ortalaması"
+          />
+          <StatCard
+            title="Son 5 Değişim"
+            value={`${userStats.recentChange >= 0 ? '+' : ''}${userStats.recentChange.toFixed(1)}%`}
+            icon={<TrendingUpIcon className={`h-4 w-4 ${userStats.recentChange >= 0 ? 'text-green-600' : 'text-red-600'}`} />}
+            badgeLabel={<ScopeBadge scope="self" />}
+            infoTitle="Son 5 ve önceki 5 test karşılaştırması"
+          />
+          <StatCard
+            title="Hedefe Kalan"
+            value={userStats.targetRemaining}
+            icon={<FlagIcon className="h-4 w-4" />}
+            badgeLabel={<ScopeBadge scope="self" />}
+            infoTitle="480 puan hedefine kalan mesafe"
+          />
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="text-gray-500 w-4 h-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                  </svg>
-                </div>
-                <label className="text-xs font-medium text-gray-700">Ders</label>
-                <CourseSelect
-                  options={courseOptions}
-                  value={selectedCourse}
-                  onChange={(v) => setSelectedCourse(v)}
+                <AlertTriangleIcon className="h-4 w-4 text-slate-500" />
+                <span className="text-sm font-medium text-slate-600 uppercase tracking-wide">Risk Seviyesi</span>
+              </div>
+              <ScopeBadge scope="self" />
+            </div>
+            <div className="relative w-24 h-24 mx-auto mb-4">
+              <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 36 36">
+                <path
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  fill="none"
+                  stroke="#e5e7eb"
+                  strokeWidth="2"
                 />
-
-      <ConfirmModal
-        isOpen={!!confirmDeleteId}
-        title="Silme Onayı"
-        message="Bu test sonucunu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
-        confirmText="Evet, sil"
-        cancelText="Vazgeç"
-        onConfirm={confirmDelete}
-        onCancel={() => setConfirmDeleteId(null)}
-      />
-              </div>
-              <div className="hidden sm:block h-6 w-px bg-gray-200 ml-1" />
-              <div className="flex items-center gap-2 ml-auto">
-                <span className="text-xs text-gray-600 hidden sm:inline">Kapsam</span>
-                <div className="inline-flex items-center rounded-full bg-gray-50 border border-gray-200 p-0.5">
-                  <button
-                    type="button"
-                    title="Kendim"
-                    aria-label="Kendim"
-                    className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${scope === 'self' ? 'bg-white text-emerald-700 border border-emerald-200 shadow-sm' : 'text-gray-700'}`}
-                    onClick={() => setScope('self')}
-                  >
-                    <UserIcon className="h-3.5 w-3.5" />
-                    <span className="hidden md:inline">Kendim</span>
-                  </button>
-                  <button
-                    type="button"
-                    title="Okul geneli"
-                    aria-label="Okul geneli"
-                    className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full ${scope === 'school' ? 'bg-white text-sky-700 border border-sky-200 shadow-sm' : 'text-gray-700'}`}
-                    onClick={() => setScope('school')}
-                  >
-                    <GlobeIcon className="h-3.5 w-3.5" />
-                    <span className="hidden md:inline">Okul geneli</span>
-                  </button>
-                </div>
+                <path
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  fill="none"
+                  stroke={riskLevel.color}
+                  strokeWidth="2"
+                  strokeDasharray={`${riskLevel.value}, 100`}
+                  className="transition-all duration-500"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-lg font-bold text-slate-900">{riskLevel.level}</span>
               </div>
             </div>
+            <p className="text-xs text-slate-500 text-center">
+              Performans ve trend analizi
+            </p>
           </div>
-        )}
-
-        {/* KPI Row */}
-        {scopeResults.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-2.5 transition-shadow duration-200 hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] uppercase tracking-wide text-gray-500">Toplam Test</p>
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-emerald-50 text-emerald-600"><BookOpenIcon /></span>
-              </div>
-              <p className="mt-1 text-lg font-semibold text-gray-900">{stats.totalTests}</p>
-            </div>
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-2.5 transition-shadow duration-200 hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] uppercase tracking-wide text-gray-500">Toplam Soru</p>
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-sky-50 text-sky-600"><UserGroupIcon /></span>
-              </div>
-              <p className="mt-1 text-lg font-semibold text-gray-900">{stats.totalQuestions}</p>
-            </div>
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-2.5 transition-shadow duration-200 hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] uppercase tracking-wide text-gray-500">Başarı (%)</p>
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-amber-50 text-amber-600"><ChartBarIcon /></span>
-              </div>
-              <p className={`mt-1 text-lg font-semibold ${stats.overallSuccessRate>=70? 'text-emerald-700' : stats.overallSuccessRate>=60 ? 'text-amber-700' : 'text-rose-700'}`}>{stats.overallSuccessRate}</p>
-            </div>
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-2.5 transition-shadow duration-200 hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] uppercase tracking-wide text-gray-500">Son Net</p>
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-indigo-50 text-indigo-600"><ChartBarIcon /></span>
-              </div>
-              <p className="mt-1 text-lg font-semibold text-gray-900">{lastNet}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
-          {/* Left Column - Stats */}
-          <div className="lg:col-span-1">
-            {scopeResults.length > 0 && (
-            <div className="grid grid-cols-2 gap-2">
-              <StatCard
-                title="Toplam Test"
-                value={stats.totalTests}
-                icon={<BookOpenIcon />}
-                badgeLabel={<ScopeBadge scope={scope} />}
-                infoTitle="Seçilen kapsam ve derse göre toplam test sayısı"
-              />
-              <StatCard
-                title="Toplam Soru"
-                value={stats.totalQuestions}
-                icon={<UserGroupIcon />}
-                badgeLabel={<ScopeBadge scope={scope} />}
-                infoTitle="Seçilen kapsam ve derse göre toplam soru sayısı"
-              />
-            </div>
-            )}
-            {userResults.length > 0 && (
-            <div className="mt-3">
-              <PerformanceCards data={userResults} scopeBadge={<ScopeBadge scope={scope} />} />
-            </div>
-            )}
-            {/* Weak-topic quick tasks */}
-            {weakestThree.length > 0 && (
-              <div className="mt-3 bg-white rounded-lg border border-gray-200 shadow-sm p-2.5 transition-shadow duration-200 hover:shadow-md">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-semibold text-gray-900">Zayıf Branşlar – Hızlı Görev</h3>
-                  <span className="text-[10px] text-gray-500">Tek tıkla görev oluştur</span>
-                </div>
-                <div className="grid grid-cols-1 gap-2">
-                  {weakestThree.map(([name, val]) => {
-                    const max = (name==='Türkçe' || name==='Matematik' || name==='Fen Bilgisi') ? 20 : 10;
-                    const pct = Math.min(100, Math.max(0, (Number(val) / max) * 100));
-                    return (
-                      <div key={String(name)} className="flex items-center gap-2">
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-800 font-medium truncate">{String(name)}</span>
-                            <span className="text-[10px] text-gray-600">{val.toFixed(2)} / {max} net</span>
-                          </div>
-                          <div className="mt-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-1.5 bg-amber-500 transition-all" style={{ width: `${pct}%` }} />
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCreateQuickTask(String(name))}
-                          className="shrink-0 px-2 py-1 text-[10px] rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
-                        >Görev Ekle</button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            {/* Removed LevelBadge + InsightsCards block as requested */}
-            {/* Branch target bars */}
-            {Object.keys(branchAverages).length > 0 && (
-              <div className="mt-3 bg-white rounded-lg border border-gray-200 shadow-sm p-2.5 transition-shadow duration-200 hover:shadow-md">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-semibold text-gray-900">Branş Hedef Çubukları</h3>
-                  <button onClick={openTargets} className="text-[10px] underline decoration-dotted text-gray-600 hover:text-gray-800">Hedefleri Düzenle</button>
-                </div>
-                <div className="space-y-2">
-                  {Object.entries(branchAverages).map(([name, val]) => {
-                    const max = (name==='Türkçe' || name==='Matematik' || name==='Fen Bilgisi') ? 20 : 10;
-                    const target = branchTargets[name] ?? (max - 2);
-                    const pct = Math.min(100, Math.max(0, (Number(val) / max) * 100));
-                    const pctTarget = Math.min(100, Math.max(0, (Number(target) / max) * 100));
-                    return (
-                      <div key={name} className="">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-800 font-medium truncate">{name}</span>
-                          <span className="text-[10px] text-gray-600">{val.toFixed(2)} / {max} net</span>
-                        </div>
-                        <div className="mt-1 h-2 bg-gray-100 rounded-full relative overflow-hidden">
-                          <div className="absolute inset-y-0 left-0 bg-sky-300" style={{ width: `${pctTarget}%` }} />
-                          <div className="absolute inset-y-0 left-0 bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-                    </div>
-
-          {/* Right Column - Charts + Row below charts */}
-          {scopeResults.length > 0 && (
-            <div className="lg:col-span-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
-                <div className="transition-shadow duration-200">
-                  <CourseSuccessChart
-                    data={scopeResults}
-                    scopeBadge={<ScopeBadge scope={scope} />}
-                    onEnlarge={() => openModal(
-                      <CourseSuccessChart data={scopeResults} height={260} showEnlarge={false} scopeBadge={<ScopeBadge scope={scope} />} />
-                    )}
-                  />
-                </div>
-                <div className="transition-shadow duration-200">
-                  <TimeSeriesChart
-                    data={scopeResults}
-                    selectedCourse={selectedCourse}
-                    showFilter
-                    scopeBadge={<ScopeBadge scope={scope} />}
-                    onEnlarge={() => openModal(
-                      <TimeSeriesChart data={scopeResults} selectedCourse={selectedCourse} showFilter showEnlarge={false} scopeBadge={<ScopeBadge scope={scope} />} height={260} />
-                    )}
-                  />
-                </div>
-              </div>
-              {/* RankingSummary moved below the main grid to span full width */}
-            </div>
-          )}
         </div>
-        {/* Mini Leaderboard (school scope) */}
-        {scope==='school' && leaderboard.length > 0 && (
-          <div className="mt-3 bg-white rounded-lg border border-gray-200 shadow-sm p-2.5 transition-shadow duration-200 hover:shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-semibold text-gray-900">Mini Sıralama (Son 5 Ortalama Net)</h3>
-              <span className="text-[10px] text-gray-500">İlk 5</span>
+
+        {/* Navigation Tabs */}
+        <div className="mb-6">
+          <nav className="flex space-x-8 border-b border-slate-200">
+            {[
+              { key: 'trend', label: 'Trend Analizi', icon: TrendingUpIcon },
+              { key: 'courses', label: 'Branş Analizi', icon: BookIcon },
+              { key: 'table', label: 'Detaylı Tablo', icon: BrainIcon },
+            ].map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key as any)}
+                className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === key
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Content based on active tab */}
+        {activeTab === 'trend' && (
+          <div className="space-y-6">
+            {/* Charts Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                <TimeSeriesChart
+                  data={filteredData}
+                  height={300}
+                  showFilter={true}
+                  onEnlarge={() => setChartModal({ isOpen: true, type: 'timeseries' })}
+                  scopeBadge={<ScopeBadge scope={scope} />}
+                />
+              </div>
+              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                <CourseSuccessChart
+                  data={filteredData}
+                  height={300}
+                  onEnlarge={() => setChartModal({ isOpen: true, type: 'courses' })}
+                  scopeBadge={<ScopeBadge scope={scope} />}
+                />
+              </div>
             </div>
-            <ul className="divide-y divide-gray-100">
-              {leaderboard.map((r, idx) => (
-                <li key={r.userId} className="py-1.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-gray-100 text-gray-700 text-[10px]">{idx+1}</span>
-                    <span className={`truncate text-xs ${r.userId===user.uid?'font-semibold text-emerald-700':'text-gray-800'}`}>{r.email}</span>
-                  </div>
-                  <span className={`text-xs ${r.userId===user.uid?'text-emerald-700':'text-gray-800'}`}>{r.avgLast5.toFixed(2)}</span>
-                </li>
-              ))}
-            </ul>
+
+            {/* Performance Cards */}
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+              <PerformanceCards data={filteredData} scopeBadge={<ScopeBadge scope={scope} />} />
+            </div>
+
+            {/* Additional Insights */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                <InsightsCards data={results} currentUserId={user.uid} />
+              </div>
+              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                <QuickStats data={filteredData} currentUserId={user.uid} />
+              </div>
+              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-slate-900">Rozetler</h3>
+                  <LevelBadge level="giris" compact />
+                </div>
+                <BadgesBar earned={earnedBadges} compact={false} />
+              </div>
+            </div>
           </div>
         )}
-        {/* Full-width Ranking Summary below main grid */}
-        {scopeResults.length > 0 && (
-          <div className="mt-3 sm:mt-4">
-            <RankingSummary data={scopeResults} currentUserId={user.uid} />
+
+        {activeTab === 'courses' && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-4 mb-6">
+              <CourseSelect
+                options={courseOptions}
+                value={selectedCourse}
+                onChange={setSelectedCourse}
+                placeholder="Ders seçin"
+              />
+              <ScopeBadge scope={scope} showText />
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                <CourseSuccessChart
+                  data={selectedCourse === 'all' ? filteredData : filteredData.filter(r => r.dersAdi === selectedCourse)}
+                  height={400}
+                  scopeBadge={<ScopeBadge scope={scope} />}
+                />
+              </div>
+              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                <RankingSummary data={results} currentUserId={user.uid} />
+              </div>
+            </div>
           </div>
         )}
-        {(displayResults.length > 0 || isAdding) && (
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-            <div className="p-2.5 border-b border-gray-200">
-              <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
-                <h2 className="text-xs font-semibold text-gray-900">
-                  {showOnlyMyResults ? 'Test Sonuçlarım' : 'Tüm Test Sonuçları'}
-                </h2>
-                <div className="flex items-center gap-2">
-                    <input 
-                        type="checkbox" 
-                    id="user-filter"
-                    checked={showOnlyMyResults}
-                    onChange={(e) => setShowOnlyMyResults(e.target.checked)}
-                    disabled={scope === 'school'}
-                    className="h-3 w-3 rounded border-gray-300 text-green-600 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                  <label htmlFor="user-filter" className="text-xs text-gray-600 select-none">
-                    Kendi Test Sonuçlarım{scope === 'school' ? ' (okul genelinde devre dışı)' : ''}
-                  </label>
+
+        {activeTab === 'table' && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-slate-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">Test Sonuçları</h2>
+                  <p className="text-sm text-slate-600 mt-1">Tüm test sonuçlarınızı detaylı olarak görüntüleyin</p>
                 </div>
+                <div className="flex items-center gap-3">
+                  <ScopeBadge scope={scope} showText />
+                  <button
+                    onClick={() => setIsAdding(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
+                  >
+                    <PlusIcon className="h-4 w-4" />
+                    Yeni Sonuç Ekle
+                  </button>
                 </div>
+              </div>
             </div>
-           <TestResultsTable
-              results={paginatedResults}
+            <TestResultsTable
+              results={sortedResults}
               currentUserId={user.uid}
-              currentUserEmail={user.email || 'N/A'}
               onDelete={handleDeleteResult}
-              onAddResult={(a,b,c,d,topics) => handleAddResult(a,b,c,d,topics)}
-              onUpdateResult={(id,a,b,c,d,topics) => handleUpdateResult(id,a,b,c,d,topics)}
+              onAddResult={handleAddResult}
+              onUpdateResult={handleUpdateResult}
               onAddMistake={handleAddMistake}
+              currentUserEmail={user.email || ''}
               isAdding={isAdding}
               onCancelAdd={() => setIsAdding(false)}
               sortConfig={sortConfig}
               requestSort={requestSort}
-              isCompact={isCompact}
+              isCompact={false}
             />
-            {totalResults > 0 && (
-              <div className="p-2.5 border-t border-gray-200">
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-gray-600">Göster:</span>
-                    <select 
-                        value={pageSize} 
-                        onChange={(e) => setPageSize(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                      className="rounded border-gray-300 shadow-sm bg-white focus:ring-1 focus:ring-green-500 focus:border-green-500 py-0.5 px-1.5 text-[10px]"
-                    >
-                        <option value={25}>25</option>
-                        <option value={50}>50</option>
-                        <option value="all">Tümü</option>
-                    </select>
-                </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[10px] text-gray-600">
-                      {currentPage} / {totalPages}
-                    </span>
-                    <div className="flex gap-1">
-                        <button 
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                            disabled={currentPage === 1}
-                        className="px-1.5 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-[10px]"
-                        >
-                        ←
-                        </button>
-                        <button 
-                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                            disabled={currentPage === totalPages}
-                        className="px-1.5 py-0.5 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-[10px]"
-                        >
-                        →
-                        </button>
-                    </div>
-                    </div>
-                </div>
-              </div>
-            )}
-        </div>
-        )}
-
-        
-
-        {/* Empty State */}
-        {displayResults.length === 0 && !isAdding && (
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-12 text-center">
-            <BookOpenIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz test sonucu yok</h3>
-            <p className="text-gray-500 mb-6">Henüz test sonucunuz yok</p>
-            <button
-              onClick={() => setIsAdding(true)}
-              className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
-            >
-              <PlusIcon />
-              İlk Test Sonucunu Ekle
-            </button>
           </div>
         )}
       </main>
 
-      <ChartModal isOpen={isModalOpen} onClose={closeModal}>
-        {modalContent}
+      {/* Modals */}
+      <QuickAddModal
+        isOpen={isQuickAddOpen}
+        onClose={() => setIsQuickAddOpen(false)}
+        onSave={handleAddResult}
+        courseOptions={courseOptions.filter(c => c !== 'all')}
+        defaultCourse={selectedCourse}
+      />
+
+      <MistakeModal
+        isOpen={mistakeModal.isOpen}
+        dersAdi={mistakeModal.result?.dersAdi || ''}
+        topicOptions={getCourseTopics(mistakeModal.result?.dersAdi || '')}
+        onClose={() => setMistakeModal({ isOpen: false })}
+        onSave={handleSaveMistake}
+      />
+
+      <ChartModal
+        isOpen={chartModal.isOpen}
+        onClose={() => setChartModal({ isOpen: false })}
+      >
+        {chartModal.type === 'timeseries' && (
+          <TimeSeriesChart
+            data={filteredData}
+            height={500}
+            showFilter={true}
+            showEnlarge={false}
+            scopeBadge={<ScopeBadge scope={scope} />}
+          />
+        )}
+        {chartModal.type === 'courses' && (
+          <CourseSuccessChart
+            data={filteredData}
+            height={500}
+            showEnlarge={false}
+            scopeBadge={<ScopeBadge scope={scope} />}
+          />
+        )}
       </ChartModal>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        message={confirmModal.message || ''}
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmModal({ isOpen: false })}
+      />
 
       {toast && (
         <Toast
@@ -1032,90 +644,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           type={toast.type}
           onClose={() => setToast(null)}
         />
-      )}
-
-      <QuickAddModal
-        isOpen={isQuickAddOpen}
-        onClose={() => setIsQuickAddOpen(false)}
-        onSave={(ders, dogru, yanlis, bos, topics) => handleAddResult(ders, dogru, yanlis, bos, topics)}
-        courseOptions={courseOptions}
-        defaultCourse={selectedCourse}
-      />
-
-      {/* Goals Settings Modal */}
-      {isGoalsOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-sm p-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-900">Hedefleri Düzenle</h3>
-              <button onClick={()=>setIsGoalsOpen(false)} className="text-gray-500 hover:text-gray-700">×</button>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[11px] text-gray-600">Günlük hedef</label>
-                <input type="number" min={1} max={20} value={tmpDaily} onChange={(e)=> setTmpDaily(e.target.value.replace(/\D/g,''))} className="w-full rounded border-gray-300 bg-white text-xs px-2 py-1" />
-              </div>
-              <div>
-                <label className="text-[11px] text-gray-600">Haftalık hedef</label>
-                <input type="number" min={1} max={50} value={tmpWeekly} onChange={(e)=> setTmpWeekly(e.target.value.replace(/\D/g,''))} className="w-full rounded border-gray-300 bg-white text-xs px-2 py-1" />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-3">
-              <button onClick={()=>setIsGoalsOpen(false)} className="px-2 py-1 text-xs rounded border border-gray-300">Vazgeç</button>
-              <button onClick={()=>{
-                const d = Math.max(1, Math.min(20, parseInt(tmpDaily || '1', 10)));
-                const w = Math.max(1, Math.min(50, parseInt(tmpWeekly || '3', 10)));
-                setDailyTarget(d);
-                setWeeklyTarget(w);
-                try { localStorage.setItem('goals_v1', JSON.stringify({ daily: d, weekly: w })); } catch {}
-                setIsGoalsOpen(false);
-                setToast({ message: 'Hedefler güncellendi.', type: 'success' });
-              }} className="px-2 py-1 text-xs rounded bg-emerald-600 text-white">Kaydet</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <MistakeModal
-        isOpen={isMistakeOpen}
-        dersAdi={mistakeResult?.dersAdi || ''}
-        topicOptions={getCourseTopics(mistakeResult?.dersAdi || '')}
-        defaultTopic={(mistakeResult?.topics && mistakeResult.topics[0]) || undefined}
-        onClose={() => { setIsMistakeOpen(false); setMistakeResult(null); }}
-        onSave={handleSaveMistake}
-      />
-      {/* Targets Modal */}
-      {isTargetsOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-900">Branş Hedeflerini Düzenle</h3>
-              <button onClick={()=> setIsTargetsOpen(false)} className="text-gray-500 hover:text-gray-700">×</button>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {Object.entries(branchTargets).map(([name, val]) => (
-                <div key={name}>
-                  <label className="text-[11px] text-gray-600">{name} hedef</label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={(name==='Türkçe'||name==='Matematik'||name==='Fen Bilgisi')?20:10}
-                    value={String(tmpTargets[name] ?? val)}
-                    onChange={(e)=> {
-                      const num = parseInt(e.target.value.replace(/\D/g,''), 10);
-                      setTmpTargets(prev => ({ ...prev, [name]: isNaN(num)? 0 : num }));
-                    }}
-                    className="w-full rounded border-gray-300 bg-white text-xs px-2 py-1"
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end gap-2 mt-3">
-              <button onClick={()=> setIsTargetsOpen(false)} className="px-2 py-1 text-xs rounded border border-gray-300">Vazgeç</button>
-              <button onClick={saveTargets} className="px-2 py-1 text-xs rounded bg-emerald-600 text-white">Kaydet</button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
