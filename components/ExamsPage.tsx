@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, where, Timestamp } from 'firebase/firestore';
 import { signOut, User } from 'firebase/auth';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Cell } from 'recharts';
 import { db, auth } from '../services/firebase';
 import type { ExamResult } from '../types';
 import Header from './Header';
@@ -13,6 +14,27 @@ const TrendingUpIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
     <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
     <polyline points="17 6 23 6 23 12" />
+  </svg>
+);
+
+const TrendingDownIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
+    <polyline points="17 18 23 18 23 12" />
+  </svg>
+);
+
+const BarChartIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <line x1="12" y1="20" x2="12" y2="10" />
+    <line x1="18" y1="20" x2="18" y2="4" />
+    <line x1="6" y1="20" x2="6" y2="16" />
+  </svg>
+);
+
+const ActivityIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <polyline points="22,12 18,12 15,21 9,3 6,12 2,12" />
   </svg>
 );
 
@@ -80,6 +102,7 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
   const [addModal, setAddModal] = useState<{ isOpen: boolean; editData?: ExamResult }>({ isOpen: false });
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; id?: string; message?: string }>({ isOpen: false });
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'trends' | 'comparison' | 'table'>('overview');
 
   // Data fetching
   useEffect(() => {
@@ -170,6 +193,54 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
     });
   }, [exams]);
 
+  // Chart data preparation
+  const chartData = useMemo(() => {
+    if (exams.length === 0) return { trendData: [], comparisonData: [], radarData: [] };
+
+    // Trend data (chronological)
+    const trendData = exams
+      .slice()
+      .reverse() // Reverse to show chronological order
+      .map((exam, index) => {
+        const totalNet = [exam.turkce, exam.matematik, exam.fen, exam.inkilap, exam.din, exam.ingilizce]
+          .reduce((sum, branch) => sum + (branch.dogru - branch.yanlis / 3), 0);
+        
+        return {
+          name: exam.ad || `Deneme ${index + 1}`,
+          date: exam.createdAt ? exam.createdAt.toDate().toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }) : '',
+          'Toplam Net': Math.round(totalNet * 100) / 100,
+          'Türkçe': Math.round((exam.turkce.dogru - exam.turkce.yanlis / 3) * 100) / 100,
+          'Matematik': Math.round((exam.matematik.dogru - exam.matematik.yanlis / 3) * 100) / 100,
+          'Fen': Math.round((exam.fen.dogru - exam.fen.yanlis / 3) * 100) / 100,
+          'İnkılap': Math.round((exam.inkilap.dogru - exam.inkilap.yanlis / 3) * 100) / 100,
+          'Din': Math.round((exam.din.dogru - exam.din.yanlis / 3) * 100) / 100,
+          'İngilizce': Math.round((exam.ingilizce.dogru - exam.ingilizce.yanlis / 3) * 100) / 100,
+        };
+      });
+
+    // Comparison data (average per branch)
+    const comparisonData = branchAnalysis.map(branch => ({
+      name: branch.name,
+      'Ortalama Net': branch.avgNet,
+      'En İyi': branch.bestNet,
+      'En Düşük': branch.worstNet,
+      color: branch.color
+    }));
+
+    // Radar data (latest exam performance)
+    const latestExam = exams[0];
+    const radarData = latestExam ? [
+      { subject: 'Türkçe', net: Math.round((latestExam.turkce.dogru - latestExam.turkce.yanlis / 3) * 100) / 100, fullMark: 20 },
+      { subject: 'Matematik', net: Math.round((latestExam.matematik.dogru - latestExam.matematik.yanlis / 3) * 100) / 100, fullMark: 20 },
+      { subject: 'Fen', net: Math.round((latestExam.fen.dogru - latestExam.fen.yanlis / 3) * 100) / 100, fullMark: 20 },
+      { subject: 'İnkılap', net: Math.round((latestExam.inkilap.dogru - latestExam.inkilap.yanlis / 3) * 100) / 100, fullMark: 10 },
+      { subject: 'Din', net: Math.round((latestExam.din.dogru - latestExam.din.yanlis / 3) * 100) / 100, fullMark: 10 },
+      { subject: 'İngilizce', net: Math.round((latestExam.ingilizce.dogru - latestExam.ingilizce.yanlis / 3) * 100) / 100, fullMark: 10 },
+    ] : [];
+
+    return { trendData, comparisonData, radarData };
+  }, [exams, branchAnalysis]);
+
   // Event handlers
   const handleAddExam = async (payload: any) => {
     try {
@@ -244,16 +315,46 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
               <h1 className="text-3xl font-bold text-slate-900 mb-2">LGS Deneme Sınavları</h1>
               <p className="text-slate-600">Deneme sınavı sonuçlarınızı takip edin ve performansınızı analiz edin</p>
             </div>
-            <button
-              onClick={() => setAddModal({ isOpen: true })}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
-            >
-              <PlusIcon className="h-4 w-4" />
-              Yeni Deneme Ekle
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setAddModal({ isOpen: true })}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+              >
+                <PlusIcon className="h-4 w-4" />
+                Yeni Deneme Ekle
+              </button>
+            </div>
           </div>
         </div>
 
+        {/* Navigation Tabs */}
+        <div className="mb-6">
+          <nav className="flex space-x-8 border-b border-slate-200">
+            {[
+              { key: 'overview', label: 'Genel Bakış', icon: TargetIcon },
+              { key: 'trends', label: 'Trend Analizi', icon: TrendingUpIcon },
+              { key: 'comparison', label: 'Branş Karşılaştırması', icon: BarChartIcon },
+              { key: 'table', label: 'Detaylı Tablo', icon: BookOpenIcon },
+            ].map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key as any)}
+                className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === key
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Content based on active tab */}
+        {activeTab === 'overview' && (
+          <div className="space-y-8">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
@@ -364,8 +465,246 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
             </div>
           </div>
         )}
+          </div>
+        )}
 
-        {/* Exams Table */}
+        {activeTab === 'trends' && (
+          <div className="space-y-6">
+            {/* Trend Analysis Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Total Net Trend */}
+              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">Toplam Net Trendi</h3>
+                    <p className="text-sm text-slate-600 mt-1">Zaman içindeki genel performans değişimi</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <TrendingUpIcon className={`h-5 w-5 ${stats.recentChange >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+                    <span className={`text-sm font-medium ${stats.recentChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {stats.recentChange >= 0 ? '+' : ''}{stats.recentChange}
+                    </span>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={chartData.trendData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis 
+                      dataKey="name" 
+                      fontSize={12}
+                      tick={{ fill: '#64748b' }}
+                      axisLine={{ stroke: '#e2e8f0' }}
+                    />
+                    <YAxis 
+                      fontSize={12}
+                      tick={{ fill: '#64748b' }}
+                      axisLine={{ stroke: '#e2e8f0' }}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'white',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
+                      }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="Toplam Net" 
+                      stroke="#3b82f6" 
+                      strokeWidth={3}
+                      dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2, fill: 'white' }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Branch Trends */}
+              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">Branş Trendleri</h3>
+                    <p className="text-sm text-slate-600 mt-1">Her branştaki performans değişimi</p>
+                  </div>
+                  <ActivityIcon className="h-5 w-5 text-slate-400" />
+                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={chartData.trendData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis 
+                      dataKey="name" 
+                      fontSize={12}
+                      tick={{ fill: '#64748b' }}
+                      axisLine={{ stroke: '#e2e8f0' }}
+                    />
+                    <YAxis 
+                      fontSize={12}
+                      tick={{ fill: '#64748b' }}
+                      axisLine={{ stroke: '#e2e8f0' }}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'white',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
+                      }}
+                    />
+                    <Legend />
+                    <Line type="monotone" dataKey="Türkçe" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="Matematik" stroke="#10b981" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="Fen" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="İnkılap" stroke="#ef4444" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="Din" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="İngilizce" stroke="#06b6d4" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Performance Radar */}
+            {chartData.radarData.length > 0 && (
+              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">Son Deneme Performans Analizi</h3>
+                    <p className="text-sm text-slate-600 mt-1">En son denemenizin branş bazlı detaylı analizi</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <CalendarIcon className="h-4 w-4" />
+                    {formatDate(exams[0]?.createdAt)}
+                  </div>
+                </div>
+                <div className="flex justify-center">
+                  <ResponsiveContainer width="100%" height={400}>
+                    <RadarChart data={chartData.radarData}>
+                      <PolarGrid stroke="#e2e8f0" />
+                      <PolarAngleAxis 
+                        dataKey="subject" 
+                        tick={{ fill: '#64748b', fontSize: 12 }}
+                      />
+                      <PolarRadiusAxis 
+                        angle={90} 
+                        domain={[0, 20]} 
+                        tick={{ fill: '#64748b', fontSize: 10 }}
+                      />
+                      <Radar
+                        name="Net"
+                        dataKey="net"
+                        stroke="#3b82f6"
+                        fill="#3b82f6"
+                        fillOpacity={0.1}
+                        strokeWidth={2}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'white',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
+                        }}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'comparison' && (
+          <div className="space-y-6">
+            {/* Branch Comparison Chart */}
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Branş Karşılaştırması</h3>
+                  <p className="text-sm text-slate-600 mt-1">Her branştaki ortalama, en iyi ve en düşük performansınız</p>
+                </div>
+                <BarChartIcon className="h-5 w-5 text-slate-400" />
+              </div>
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart data={chartData.comparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="name" 
+                    fontSize={12}
+                    tick={{ fill: '#64748b' }}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                  />
+                  <YAxis 
+                    fontSize={12}
+                    tick={{ fill: '#64748b' }}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="Ortalama Net" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="En İyi" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="En Düşük" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Detailed Branch Analysis */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {branchAnalysis.map((branch, index) => (
+                <div key={branch.name} className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div 
+                      className="w-4 h-4 rounded-full" 
+                      style={{ backgroundColor: branch.color }}
+                    ></div>
+                    <h3 className="font-semibold text-slate-900">{branch.name}</h3>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-600">Ortalama Net</span>
+                      <span className="font-semibold text-slate-900">{branch.avgNet}</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-600">En İyi Performans</span>
+                      <span className="font-semibold text-green-600">{branch.bestNet}</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-600">En Düşük Performans</span>
+                      <span className="font-semibold text-red-600">{branch.worstNet}</span>
+                    </div>
+                    
+                    <div className="pt-2">
+                      <div className="flex justify-between text-xs text-slate-500 mb-1">
+                        <span>Gelişim Potansiyeli</span>
+                        <span>{Math.round(((branch.bestNet - branch.worstNet) / branch.bestNet) * 100)}%</span>
+                      </div>
+                      <div className="w-full bg-slate-200 rounded-full h-2">
+                        <div 
+                          className="h-2 rounded-full transition-all duration-500"
+                          style={{ 
+                            width: `${Math.round(((branch.bestNet - branch.worstNet) / branch.bestNet) * 100)}%`,
+                            backgroundColor: branch.color 
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'table' && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-200">
             <h2 className="text-lg font-semibold text-slate-900">Deneme Sonuçları</h2>
@@ -469,6 +808,7 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
             </div>
           )}
         </div>
+        )}
       </main>
 
       {/* Modals */}
