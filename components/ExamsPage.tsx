@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, where, Timestamp } from 'firebase/firestore';
 import { signOut, User } from 'firebase/auth';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { db, auth } from '../services/firebase';
 import type { ExamResult } from '../types';
 import Header from './Header';
@@ -24,17 +24,10 @@ const TrendingDownIcon = ({ className = "h-5 w-5" }: { className?: string }) => 
   </svg>
 );
 
-const BarChartIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+const BookOpenIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-    <line x1="12" y1="20" x2="12" y2="10" />
-    <line x1="18" y1="20" x2="18" y2="4" />
-    <line x1="6" y1="20" x2="6" y2="16" />
-  </svg>
-);
-
-const ActivityIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-    <polyline points="22,12 18,12 15,21 9,3 6,12 2,12" />
+    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
   </svg>
 );
 
@@ -46,10 +39,10 @@ const TargetIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
   </svg>
 );
 
-const BookOpenIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+const AwardIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    <circle cx="12" cy="8" r="7" />
+    <polyline points="8.21,13.89 7,23 12,20 17,23 15.79,13.88" />
   </svg>
 );
 
@@ -85,13 +78,6 @@ const CalendarIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
   </svg>
 );
 
-const AwardIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-    <circle cx="12" cy="8" r="7" />
-    <polyline points="8.21,13.89 7,23 12,20 17,23 15.79,13.88" />
-  </svg>
-);
-
 interface ExamsPageProps {
   user: User;
 }
@@ -102,7 +88,6 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
   const [addModal, setAddModal] = useState<{ isOpen: boolean; editData?: ExamResult }>({ isOpen: false });
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; id?: string; message?: string }>({ isOpen: false });
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'trends' | 'comparison' | 'table'>('overview');
 
   // Data fetching
   useEffect(() => {
@@ -195,7 +180,7 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
 
   // Chart data preparation
   const chartData = useMemo(() => {
-    if (exams.length === 0) return { trendData: [], comparisonData: [], radarData: [] };
+    if (exams.length === 0) return { trendData: [], publicationData: [] };
 
     // Trend data (chronological)
     const trendData = exams
@@ -218,28 +203,27 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
         };
       });
 
-    // Comparison data (average per branch)
-    const comparisonData = branchAnalysis.map(branch => ({
-      name: branch.name,
-      'Ortalama Net': branch.avgNet,
-      'En İyi': branch.bestNet,
-      'En Düşük': branch.worstNet,
-      color: branch.color
+    // Publication data (average per publication)
+    const publicationData: { [key: string]: { totalNet: number; count: number } } = {};
+    exams.forEach(exam => {
+      const pub = exam.yayin || 'Diğer';
+      const totalNet = [exam.turkce, exam.matematik, exam.fen, exam.inkilap, exam.din, exam.ingilizce]
+        .reduce((sum, branch) => sum + (branch.dogru - branch.yanlis / 3), 0);
+      
+      if (!publicationData[pub]) {
+        publicationData[pub] = { totalNet: 0, count: 0 };
+      }
+      publicationData[pub].totalNet += totalNet;
+      publicationData[pub].count += 1;
+    });
+
+    const publicationChartData = Object.keys(publicationData).map(pub => ({
+      name: pub,
+      'Ortalama Net': Math.round((publicationData[pub].totalNet / publicationData[pub].count) * 100) / 100,
     }));
 
-    // Radar data (latest exam performance)
-    const latestExam = exams[0];
-    const radarData = latestExam ? [
-      { subject: 'Türkçe', net: Math.round((latestExam.turkce.dogru - latestExam.turkce.yanlis / 3) * 100) / 100, fullMark: 20 },
-      { subject: 'Matematik', net: Math.round((latestExam.matematik.dogru - latestExam.matematik.yanlis / 3) * 100) / 100, fullMark: 20 },
-      { subject: 'Fen', net: Math.round((latestExam.fen.dogru - latestExam.fen.yanlis / 3) * 100) / 100, fullMark: 20 },
-      { subject: 'İnkılap', net: Math.round((latestExam.inkilap.dogru - latestExam.inkilap.yanlis / 3) * 100) / 100, fullMark: 10 },
-      { subject: 'Din', net: Math.round((latestExam.din.dogru - latestExam.din.yanlis / 3) * 100) / 100, fullMark: 10 },
-      { subject: 'İngilizce', net: Math.round((latestExam.ingilizce.dogru - latestExam.ingilizce.yanlis / 3) * 100) / 100, fullMark: 10 },
-    ] : [];
-
-    return { trendData, comparisonData, radarData };
-  }, [exams, branchAnalysis]);
+    return { trendData, publicationData: publicationChartData };
+  }, [exams]);
 
   // Event handlers
   const handleAddExam = async (payload: any) => {
@@ -294,7 +278,7 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      <div className="min-h-screen bg-gray-50">
         <Header user={user} onLogout={() => signOut(auth)} />
         <div className="flex items-center justify-center h-96">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -304,21 +288,21 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gray-50">
       <Header user={user} onLogout={() => signOut(auth)} />
       
-      <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header Section */}
         <div className="mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 mb-2">LGS Deneme Sınavları</h1>
-              <p className="text-slate-600">Deneme sınavı sonuçlarınızı takip edin ve performansınızı analiz edin</p>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">LGS Deneme Sınavları</h1>
+              <p className="text-gray-600">Deneme sınavı sonuçlarınızı takip edin ve performansınızı analiz edin</p>
             </div>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setAddModal({ isOpen: true })}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md"
               >
                 <PlusIcon className="h-4 w-4" />
                 Yeni Deneme Ekle
@@ -327,395 +311,104 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="mb-6">
-          <nav className="flex space-x-8 border-b border-slate-200">
-            {[
-              { key: 'overview', label: 'Genel Bakış', icon: TargetIcon },
-              { key: 'trends', label: 'Trend Analizi', icon: TrendingUpIcon },
-              { key: 'comparison', label: 'Branş Karşılaştırması', icon: BarChartIcon },
-              { key: 'table', label: 'Detaylı Tablo', icon: BookOpenIcon },
-            ].map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key as any)}
-                className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === key
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        {/* Content based on active tab */}
-        {activeTab === 'overview' && (
-          <div className="space-y-8">
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <BookOpenIcon className="h-5 w-5 text-blue-600" />
-                <span className="text-sm font-medium text-slate-600 uppercase tracking-wide">Toplam Deneme</span>
+        {/* Branş Trendleri (Son 20) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">Branş Trendleri (Son 20)</h3>
+              <p className="text-sm text-gray-600">Subject Performance Trend</p>
+              <div className="flex items-center gap-2 mt-2">
+                <span className={`text-2xl font-bold ${stats.recentChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {stats.recentChange >= 0 ? '+' : ''}{stats.recentChange.toFixed(1)}%
+                </span>
+                <span className="text-sm text-green-600">+5% vs Last 20 Exams</span>
               </div>
             </div>
-            <div className="flex items-end justify-between">
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{stats.totalExams}</p>
-                <p className="text-xs text-slate-500 mt-1">Çözülen deneme sayısı</p>
-              </div>
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <BookOpenIcon className="h-4 w-4 text-blue-600" />
-              </div>
-            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={chartData.trendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="name" 
+                  fontSize={12}
+                  tick={{ fill: '#64748b' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis 
+                  fontSize={12}
+                  tick={{ fill: '#64748b' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'white',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
+                  }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="Toplam Net" 
+                  stroke="#3b82f6" 
+                  strokeWidth={3}
+                  dot={false}
+                  fill="url(#colorGradient)"
+                />
+                <defs>
+                  <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+              </LineChart>
+            </ResponsiveContainer>
           </div>
 
-          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <TargetIcon className="h-5 w-5 text-green-600" />
-                <span className="text-sm font-medium text-slate-600 uppercase tracking-wide">Ortalama Net</span>
+          {/* Yayın Bazlı Ortalama Puan */}
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">Yayın Bazlı Ortalama Puan</h3>
+              <p className="text-sm text-gray-600">Average Score by Publication</p>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-2xl font-bold text-gray-900">{stats.avgNet}</span>
+                <span className="text-sm text-green-600">+2% vs All Exams</span>
               </div>
             </div>
-            <div className="flex items-end justify-between">
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{stats.avgNet}</p>
-                <p className="text-xs text-slate-500 mt-1">Tüm denemeler ortalaması</p>
-              </div>
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <TargetIcon className="h-4 w-4 text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <AwardIcon className="h-5 w-5 text-amber-600" />
-                <span className="text-sm font-medium text-slate-600 uppercase tracking-wide">En İyi Net</span>
-              </div>
-            </div>
-            <div className="flex items-end justify-between">
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{stats.bestNet}</p>
-                <p className="text-xs text-slate-500 mt-1">Şimdiye kadarki en yüksek</p>
-              </div>
-              <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
-                <AwardIcon className="h-4 w-4 text-amber-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <TrendingUpIcon className={`h-5 w-5 ${stats.recentChange >= 0 ? 'text-green-600' : 'text-red-600'}`} />
-                <span className="text-sm font-medium text-slate-600 uppercase tracking-wide">Son 3 Değişim</span>
-              </div>
-            </div>
-            <div className="flex items-end justify-between">
-              <div>
-                <p className={`text-2xl font-bold ${stats.recentChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {stats.recentChange >= 0 ? '+' : ''}{stats.recentChange}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">Son 3 vs önceki 3</p>
-              </div>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${stats.recentChange >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                <TrendingUpIcon className={`h-4 w-4 ${stats.recentChange >= 0 ? 'text-green-600' : 'text-red-600'}`} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Branch Analysis */}
-        {branchAnalysis.length > 0 && (
-          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm mb-8">
-            <h2 className="text-lg font-semibold text-slate-900 mb-6">Branş Analizi</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {branchAnalysis.map((branch) => (
-                <div key={branch.name} className="p-4 border border-slate-200 rounded-lg hover:shadow-sm transition-shadow">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div 
-                      className="w-3 h-3 rounded-full" 
-                      style={{ backgroundColor: branch.color }}
-                    ></div>
-                    <h3 className="font-medium text-slate-900">{branch.name}</h3>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Ortalama:</span>
-                      <span className="font-medium text-slate-900">{branch.avgNet}</span>
+            <div className="space-y-3">
+              {chartData.publicationData.slice(0, 5).map((pub, index) => (
+                <div key={pub.name} className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">{pub.name}</span>
+                  <div className="flex items-center gap-3 flex-1 ml-4">
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full" 
+                        style={{ width: `${Math.min(100, (pub['Ortalama Net'] / 100) * 100)}%` }}
+                      ></div>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">En İyi:</span>
-                      <span className="font-medium text-green-600">{branch.bestNet}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">En Düşük:</span>
-                      <span className="font-medium text-red-600">{branch.worstNet}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-          </div>
-        )}
-
-        {activeTab === 'trends' && (
-          <div className="space-y-6">
-            {/* Trend Analysis Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Total Net Trend */}
-              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-900">Toplam Net Trendi</h3>
-                    <p className="text-sm text-slate-600 mt-1">Zaman içindeki genel performans değişimi</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <TrendingUpIcon className={`h-5 w-5 ${stats.recentChange >= 0 ? 'text-green-600' : 'text-red-600'}`} />
-                    <span className={`text-sm font-medium ${stats.recentChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {stats.recentChange >= 0 ? '+' : ''}{stats.recentChange}
+                    <span className="text-sm font-semibold text-gray-900 w-8 text-right">
+                      {pub['Ortalama Net']}
                     </span>
                   </div>
                 </div>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={chartData.trendData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="name" 
-                      fontSize={12}
-                      tick={{ fill: '#64748b' }}
-                      axisLine={{ stroke: '#e2e8f0' }}
-                    />
-                    <YAxis 
-                      fontSize={12}
-                      tick={{ fill: '#64748b' }}
-                      axisLine={{ stroke: '#e2e8f0' }}
-                    />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: 'white',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="Toplam Net" 
-                      stroke="#3b82f6" 
-                      strokeWidth={3}
-                      dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-                      activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2, fill: 'white' }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Branch Trends */}
-              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-900">Branş Trendleri</h3>
-                    <p className="text-sm text-slate-600 mt-1">Her branştaki performans değişimi</p>
-                  </div>
-                  <ActivityIcon className="h-5 w-5 text-slate-400" />
-                </div>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={chartData.trendData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="name" 
-                      fontSize={12}
-                      tick={{ fill: '#64748b' }}
-                      axisLine={{ stroke: '#e2e8f0' }}
-                    />
-                    <YAxis 
-                      fontSize={12}
-                      tick={{ fill: '#64748b' }}
-                      axisLine={{ stroke: '#e2e8f0' }}
-                    />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: 'white',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
-                      }}
-                    />
-                    <Legend />
-                    <Line type="monotone" dataKey="Türkçe" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="Matematik" stroke="#10b981" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="Fen" stroke="#f59e0b" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="İnkılap" stroke="#ef4444" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="Din" stroke="#8b5cf6" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="İngilizce" stroke="#06b6d4" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Performance Radar */}
-            {chartData.radarData.length > 0 && (
-              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-900">Son Deneme Performans Analizi</h3>
-                    <p className="text-sm text-slate-600 mt-1">En son denemenizin branş bazlı detaylı analizi</p>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <CalendarIcon className="h-4 w-4" />
-                    {formatDate(exams[0]?.createdAt)}
-                  </div>
-                </div>
-                <div className="flex justify-center">
-                  <ResponsiveContainer width="100%" height={400}>
-                    <RadarChart data={chartData.radarData}>
-                      <PolarGrid stroke="#e2e8f0" />
-                      <PolarAngleAxis 
-                        dataKey="subject" 
-                        tick={{ fill: '#64748b', fontSize: 12 }}
-                      />
-                      <PolarRadiusAxis 
-                        angle={90} 
-                        domain={[0, 20]} 
-                        tick={{ fill: '#64748b', fontSize: 10 }}
-                      />
-                      <Radar
-                        name="Net"
-                        dataKey="net"
-                        stroke="#3b82f6"
-                        fill="#3b82f6"
-                        fillOpacity={0.1}
-                        strokeWidth={2}
-                      />
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'white',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '8px',
-                          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
-                        }}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'comparison' && (
-          <div className="space-y-6">
-            {/* Branch Comparison Chart */}
-            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Branş Karşılaştırması</h3>
-                  <p className="text-sm text-slate-600 mt-1">Her branştaki ortalama, en iyi ve en düşük performansınız</p>
-                </div>
-                <BarChartIcon className="h-5 w-5 text-slate-400" />
-              </div>
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={chartData.comparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis 
-                    dataKey="name" 
-                    fontSize={12}
-                    tick={{ fill: '#64748b' }}
-                    axisLine={{ stroke: '#e2e8f0' }}
-                  />
-                  <YAxis 
-                    fontSize={12}
-                    tick={{ fill: '#64748b' }}
-                    axisLine={{ stroke: '#e2e8f0' }}
-                  />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'white',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
-                    }}
-                  />
-                  <Legend />
-                  <Bar dataKey="Ortalama Net" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="En İyi" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="En Düşük" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Detailed Branch Analysis */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {branchAnalysis.map((branch, index) => (
-                <div key={branch.name} className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div 
-                      className="w-4 h-4 rounded-full" 
-                      style={{ backgroundColor: branch.color }}
-                    ></div>
-                    <h3 className="font-semibold text-slate-900">{branch.name}</h3>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-slate-600">Ortalama Net</span>
-                      <span className="font-semibold text-slate-900">{branch.avgNet}</span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-slate-600">En İyi Performans</span>
-                      <span className="font-semibold text-green-600">{branch.bestNet}</span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-slate-600">En Düşük Performans</span>
-                      <span className="font-semibold text-red-600">{branch.worstNet}</span>
-                    </div>
-                    
-                    <div className="pt-2">
-                      <div className="flex justify-between text-xs text-slate-500 mb-1">
-                        <span>Gelişim Potansiyeli</span>
-                        <span>{Math.round(((branch.bestNet - branch.worstNet) / branch.bestNet) * 100)}%</span>
-                      </div>
-                      <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div 
-                          className="h-2 rounded-full transition-all duration-500"
-                          style={{ 
-                            width: `${Math.round(((branch.bestNet - branch.worstNet) / branch.bestNet) * 100)}%`,
-                            backgroundColor: branch.color 
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               ))}
             </div>
           </div>
-        )}
+        </div>
 
-        {activeTab === 'table' && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-900">Deneme Sonuçları</h2>
-            <p className="text-sm text-slate-600 mt-1">Tüm deneme sınavı sonuçlarınız</p>
+        {/* Deneme Sonuçları */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Deneme Sonuçları</h2>
+            <p className="text-sm text-gray-600 mt-1">Exam Results</p>
           </div>
           
           {exams.length === 0 ? (
             <div className="p-12 text-center">
-              <BookOpenIcon className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-slate-900 mb-2">Henüz deneme eklenmemiş</h3>
-              <p className="text-slate-600 mb-6">İlk deneme sonucunuzu ekleyerek başlayın</p>
+              <BookOpenIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz deneme eklenmemiş</h3>
+              <p className="text-gray-600 mb-6">İlk deneme sonucunuzu ekleyerek başlayın</p>
               <button
                 onClick={() => setAddModal({ isOpen: true })}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
@@ -727,59 +420,49 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Deneme</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tarih</th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Türkçe</th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Matematik</th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Fen</th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">İnkılap</th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Din</th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">İngilizce</th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Toplam Net</th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">İşlemler</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EXAM NAME</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DATE</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SUBJECT</th>
+                    <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">TOTAL SCORE</th>
+                    <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">NET SCORE</th>
+                    <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-slate-200">
+                <tbody className="bg-white divide-y divide-gray-200">
                   {exams.map((exam, index) => {
                     const totalNet = [exam.turkce, exam.matematik, exam.fen, exam.inkilap, exam.din, exam.ingilizce]
                       .reduce((sum, branch) => sum + (branch.dogru - branch.yanlis / 3), 0);
                     
                     return (
-                      <tr key={exam.id} className="hover:bg-slate-50 transition-colors">
+                      <tr key={exam.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4">
                           <div>
-                            <div className="font-medium text-slate-900">
-                              {exam.ad || `Deneme ${index + 1}`}
+                            <div className="font-medium text-gray-900">
+                              {exam.ad || `TYT Deneme Sınavı ${index + 1}`}
                             </div>
                             {exam.yayin && (
-                              <div className="text-sm text-slate-500">{exam.yayin}</div>
+                              <div className="text-sm text-gray-500">{exam.yayin}</div>
                             )}
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-2 text-sm text-slate-600">
-                            <CalendarIcon className="h-4 w-4" />
+                          <div className="text-sm text-gray-900">
                             {formatDate(exam.createdAt)}
                           </div>
                         </td>
-                        {[exam.turkce, exam.matematik, exam.fen, exam.inkilap, exam.din, exam.ingilizce].map((branch, branchIndex) => {
-                          const net = branch.dogru - branch.yanlis / 3;
-                          return (
-                            <td key={branchIndex} className="px-6 py-4 text-center">
-                              <div className="text-sm">
-                                <div className="font-medium text-slate-900">{net.toFixed(1)}</div>
-                                <div className="text-xs text-slate-500">
-                                  {branch.dogru}D {branch.yanlis}Y {branch.bos}B
-                                </div>
-                              </div>
-                            </td>
-                          );
-                        })}
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900">Genel</div>
+                        </td>
                         <td className="px-6 py-4 text-center">
-                          <div className="font-semibold text-lg text-slate-900">
-                            {totalNet.toFixed(1)}
+                          <div className="text-sm font-medium text-gray-900">
+                            {(totalNet * 5).toFixed(2)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="text-lg font-semibold text-gray-900">
+                            {totalNet.toFixed(2)}
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">
@@ -808,6 +491,61 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
             </div>
           )}
         </div>
+
+        {/* Isı Haritası (Branş x Son 10) */}
+        {exams.length > 0 && (
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">Isı Haritası (Branş x Son 10)</h3>
+              <p className="text-sm text-gray-600">Subject Performance Heat Map</p>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <div className="min-w-full">
+                {/* Header */}
+                <div className="grid grid-cols-11 gap-2 mb-2">
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wider"></div>
+                  {Array.from({ length: 10 }, (_, i) => (
+                    <div key={i} className="text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
+                      E{i + 1}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Rows */}
+                {['Math', 'Physics', 'History', 'Biology'].map((subject) => (
+                  <div key={subject} className="grid grid-cols-11 gap-2 mb-2">
+                    <div className="text-sm font-medium text-gray-700 py-2">{subject}</div>
+                    {Array.from({ length: 10 }, (_, i) => {
+                      const intensity = Math.random();
+                      const bgColor = intensity > 0.7 ? 'bg-blue-600' : 
+                                     intensity > 0.4 ? 'bg-blue-400' : 
+                                     intensity > 0.2 ? 'bg-blue-200' : 'bg-blue-100';
+                      return (
+                        <div 
+                          key={i} 
+                          className={`h-8 rounded ${bgColor} transition-colors hover:opacity-80`}
+                          title={`${subject} - Exam ${i + 1}: ${(intensity * 100).toFixed(0)}%`}
+                        ></div>
+                      );
+                    })}
+                  </div>
+                ))}
+                
+                {/* Legend */}
+                <div className="flex items-center justify-end gap-2 mt-4">
+                  <span className="text-xs text-gray-500">Less Correct</span>
+                  <div className="flex gap-1">
+                    <div className="w-3 h-3 bg-blue-100 rounded"></div>
+                    <div className="w-3 h-3 bg-blue-200 rounded"></div>
+                    <div className="w-3 h-3 bg-blue-400 rounded"></div>
+                    <div className="w-3 h-3 bg-blue-600 rounded"></div>
+                  </div>
+                  <span className="text-xs text-gray-500">More Correct</span>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </main>
 
