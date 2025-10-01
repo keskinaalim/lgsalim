@@ -296,8 +296,8 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
         <div className="mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">LGS Deneme Sınavları</h1>
-              <p className="text-gray-600">Deneme sınavı sonuçlarınızı takip edin ve performansınızı analiz edin</p>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">LGS Deneme Takip Sistemi</h1>
+              <p className="text-gray-600">Deneme sınavı sonuçlarını analiz et, zayıf konuları belirle ve LGS'ye hazırlan</p>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -305,8 +305,43 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md"
               >
                 <PlusIcon className="h-4 w-4" />
-                Yeni Deneme Ekle
+                Deneme Sonucu Ekle
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* LGS Hedef Durumu */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 text-white mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">LGS Hedef Durumun</h2>
+              <p className="text-indigo-100 mb-4">Mevcut performansın ve hedefe olan mesafen</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-3xl font-bold">{stats.avgNet}</div>
+                  <div className="text-sm text-indigo-100">Ortalama Net</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold">{stats.bestNet}</div>
+                  <div className="text-sm text-indigo-100">En İyi Net</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold">{stats.totalExams}</div>
+                  <div className="text-sm text-indigo-100">Çözülen Deneme</div>
+                </div>
+                <div className="text-center">
+                  <div className={`text-3xl font-bold ${stats.recentChange >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+                    {stats.recentChange >= 0 ? '+' : ''}{stats.recentChange}
+                  </div>
+                  <div className="text-sm text-indigo-100">Son 3 Değişim</div>
+                </div>
+              </div>
+            </div>
+            <div className="hidden md:block">
+              <div className="w-24 h-24 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                <TargetIcon className="h-12 w-12 text-white" />
+              </div>
             </div>
           </div>
         </div>
@@ -315,13 +350,13 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">Branş Trendleri (Son 20)</h3>
-              <p className="text-sm text-gray-600">Subject Performance Trend</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">Net Puan Gelişimi</h3>
+              <p className="text-sm text-gray-600">Son denemelerdeki toplam net puanının değişimi</p>
               <div className="flex items-center gap-2 mt-2">
                 <span className={`text-2xl font-bold ${stats.recentChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {stats.recentChange >= 0 ? '+' : ''}{stats.recentChange.toFixed(1)}%
                 </span>
-                <span className="text-sm text-green-600">+5% vs Last 20 Exams</span>
+                <span className="text-sm text-gray-500">son 3 denemeye göre</span>
               </div>
             </div>
             <ResponsiveContainer width="100%" height={200}>
@@ -369,11 +404,11 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
           {/* Yayın Bazlı Ortalama Puan */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">Yayın Bazlı Ortalama Puan</h3>
-              <p className="text-sm text-gray-600">Average Score by Publication</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">Yayın Bazlı Performans</h3>
+              <p className="text-sm text-gray-600">Farklı yayınların denemelerindeki ortalama net puanların</p>
               <div className="flex items-center gap-2 mt-2">
                 <span className="text-2xl font-bold text-gray-900">{stats.avgNet}</span>
-                <span className="text-sm text-green-600">+2% vs All Exams</span>
+                <span className="text-sm text-gray-500">genel ortalama</span>
               </div>
             </div>
             <div className="space-y-3">
@@ -397,24 +432,78 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
           </div>
         </div>
 
+        {/* Branş Bazlı Detaylı Analiz */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-8">
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Branş Bazlı Detaylı Analiz</h3>
+            <p className="text-sm text-gray-600">Her derste gösterdiğin performansın ayrıntılı incelemesi</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {branchAnalysis.map((branch, index) => (
+              <div key={branch.name} className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-gray-900">{branch.name}</h4>
+                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: branch.color }}></div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-600">Ortalama Net</span>
+                      <span className="font-semibold">{branch.avgNet}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="h-2 rounded-full transition-all duration-500"
+                        style={{ 
+                          backgroundColor: branch.color,
+                          width: `${Math.min(100, (Math.abs(branch.avgNet) / 20) * 100)}%`
+                        }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>En İyi: {branch.bestNet}</span>
+                    <span>En Düşük: {branch.worstNet}</span>
+                  </div>
+                  
+                  <div className="pt-2 border-t border-gray-200">
+                    <div className="text-xs text-gray-600">
+                      {branch.avgNet >= 15 ? (
+                        <span className="text-green-600 font-medium">🎯 Güçlü Alan</span>
+                      ) : branch.avgNet >= 10 ? (
+                        <span className="text-yellow-600 font-medium">⚡ Gelişim Alanı</span>
+                      ) : (
+                        <span className="text-red-600 font-medium">🔥 Odaklanma Gerekli</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Deneme Sonuçları */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
           <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Deneme Sonuçları</h2>
-            <p className="text-sm text-gray-600 mt-1">Exam Results</p>
+            <h2 className="text-lg font-semibold text-gray-900">Deneme Sonuçları Listesi</h2>
+            <p className="text-sm text-gray-600 mt-1">Çözdüğün tüm denemelerin detaylı sonuçları</p>
           </div>
           
           {exams.length === 0 ? (
             <div className="p-12 text-center">
               <BookOpenIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz deneme eklenmemiş</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz deneme sonucu eklenmemiş</h3>
               <p className="text-gray-600 mb-6">İlk deneme sonucunuzu ekleyerek başlayın</p>
               <button
                 onClick={() => setAddModal({ isOpen: true })}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
               >
                 <PlusIcon className="h-4 w-4" />
-                İlk Denemeyi Ekle
+                İlk Deneme Sonucunu Ekle
               </button>
             </div>
           ) : (
@@ -422,11 +511,11 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EXAM NAME</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DATE</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SUBJECT</th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">TOTAL SCORE</th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">NET SCORE</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DENEME ADI</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TARİH</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">YAYIN</th>
+                    <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">TOPLAM NET</th>
+                    <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">PUAN TAHMİNİ</th>
                     <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
                   </tr>
                 </thead>
@@ -440,7 +529,7 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
                         <td className="px-6 py-4">
                           <div>
                             <div className="font-medium text-gray-900">
-                              {exam.ad || `TYT Deneme Sınavı ${index + 1}`}
+                              {exam.ad || `LGS Deneme Sınavı ${index + 1}`}
                             </div>
                             {exam.yayin && (
                               <div className="text-sm text-gray-500">{exam.yayin}</div>
@@ -449,20 +538,20 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-sm text-gray-900">
-                            {formatDate(exam.createdAt)}
+                            {exam.yayin || 'Belirtilmemiş'}
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900">Genel</div>
+                          <div className="text-sm text-gray-900">{formatDate(exam.createdAt)}</div>
                         </td>
                         <td className="px-6 py-4 text-center">
                           <div className="text-sm font-medium text-gray-900">
-                            {(totalNet * 5).toFixed(2)}
+                            {totalNet.toFixed(2)}
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">
                           <div className="text-lg font-semibold text-gray-900">
-                            {totalNet.toFixed(2)}
+                            {(totalNet * 5).toFixed(0)}
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">
@@ -496,8 +585,8 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
         {exams.length > 0 && (
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">Isı Haritası (Branş x Son 10)</h3>
-              <p className="text-sm text-gray-600">Subject Performance Heat Map</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">Performans Isı Haritası</h3>
+              <p className="text-sm text-gray-600">Son 10 denemedeki branş bazlı performans görünümü</p>
             </div>
             
             <div className="overflow-x-auto">
@@ -507,13 +596,13 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
                   <div className="text-xs font-medium text-gray-500 uppercase tracking-wider"></div>
                   {Array.from({ length: 10 }, (_, i) => (
                     <div key={i} className="text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
-                      E{i + 1}
+                      D{i + 1}
                     </div>
                   ))}
                 </div>
                 
                 {/* Rows */}
-                {['Math', 'Physics', 'History', 'Biology'].map((subject) => (
+                {['Türkçe', 'Matematik', 'Fen Bilgisi', 'Sosyal Bilgiler', 'Din Kültürü', 'İngilizce'].map((subject) => (
                   <div key={subject} className="grid grid-cols-11 gap-2 mb-2">
                     <div className="text-sm font-medium text-gray-700 py-2">{subject}</div>
                     {Array.from({ length: 10 }, (_, i) => {
@@ -525,7 +614,7 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
                         <div 
                           key={i} 
                           className={`h-8 rounded ${bgColor} transition-colors hover:opacity-80`}
-                          title={`${subject} - Exam ${i + 1}: ${(intensity * 100).toFixed(0)}%`}
+                          title={`${subject} - Deneme ${i + 1}: Net ${(intensity * 20).toFixed(1)}`}
                         ></div>
                       );
                     })}
@@ -534,14 +623,14 @@ const ExamsPage: React.FC<ExamsPageProps> = ({ user }) => {
                 
                 {/* Legend */}
                 <div className="flex items-center justify-end gap-2 mt-4">
-                  <span className="text-xs text-gray-500">Less Correct</span>
+                  <span className="text-xs text-gray-500">Düşük Net</span>
                   <div className="flex gap-1">
                     <div className="w-3 h-3 bg-blue-100 rounded"></div>
                     <div className="w-3 h-3 bg-blue-200 rounded"></div>
                     <div className="w-3 h-3 bg-blue-400 rounded"></div>
                     <div className="w-3 h-3 bg-blue-600 rounded"></div>
                   </div>
-                  <span className="text-xs text-gray-500">More Correct</span>
+                  <span className="text-xs text-gray-500">Yüksek Net</span>
                 </div>
               </div>
             </div>

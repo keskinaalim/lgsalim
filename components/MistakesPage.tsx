@@ -210,64 +210,130 @@ const MistakesPage: React.FC<MistakesPageProps> = ({ user }) => {
         </div>
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h1 className="text-base font-semibold text-gray-900">Hata Defteri</h1>
-            <p className="text-xs text-gray-500">Kayıtlarını filtrele, gözden geçir ve arşivle.</p>
+            <h1 className="text-2xl font-bold text-gray-900">LGS Hata Defteri</h1>
+            <p className="text-sm text-gray-600">Yanlış yaptığın soruları kaydet, tekrar et ve LGS'de aynı hatayı yapma</p>
           </div>
-          <a href="#dashboard" className="text-xs text-emerald-700 hover:underline">← Panel</a>
+          <a href="#dashboard" className="text-sm text-blue-600 hover:underline font-medium">← Ana Panel</a>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2.5 mb-3">
+        {/* Hata Defteri İstatistikleri */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Toplam Hata</p>
+                <p className="text-2xl font-bold text-gray-900">{mistakes.length}</p>
+              </div>
+              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                <span className="text-red-600 text-xl">📝</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Bugün Tekrar</p>
+                <p className="text-2xl font-bold text-amber-600">{dueToday.length}</p>
+              </div>
+              <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                <span className="text-amber-600 text-xl">⏰</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Gözden Geçirilen</p>
+                <p className="text-2xl font-bold text-green-600">{mistakes.filter(m => m.status === 'reviewed').length}</p>
+              </div>
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <span className="text-green-600 text-xl">✅</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Arşivlenen</p>
+                <p className="text-2xl font-bold text-gray-600">{mistakes.filter(m => m.status === 'archived').length}</p>
+              </div>
+              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <span className="text-gray-600 text-xl">📦</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 mb-6">
           <div className="flex flex-col sm:flex-row gap-2 items-center">
             <div className="flex items-center gap-2">
-              <select value={filterCourse} onChange={(e)=>{ setFilterCourse(e.target.value); setFilterTopic('all'); }} className="rounded border-gray-300 bg-white text-[11px] py-1 px-2">
+              <select value={filterCourse} onChange={(e)=>{ setFilterCourse(e.target.value); setFilterTopic('all'); }} className="rounded border-gray-300 bg-white text-sm py-2 px-3">
                 {courses.map(c => <option key={c} value={c}>{c==='all'?'Tüm Dersler':c}</option>)}
               </select>
-              <select value={filterTopic} onChange={(e)=> setFilterTopic(e.target.value)} className="rounded border-gray-300 bg-white text-[11px] py-1 px-2">
+              <select value={filterTopic} onChange={(e)=> setFilterTopic(e.target.value)} className="rounded border-gray-300 bg-white text-sm py-2 px-3">
                 {topics.map(t => <option key={t} value={t}>{t==='all'?'Tüm Konular':t}</option>)}
               </select>
-              <select value={filterStatus} onChange={(e)=> setFilterStatus(e.target.value as any)} className="rounded border-gray-300 bg-white text-[11px] py-1 px-2">
-                <option value="all">Tüm Durumlar</option>
+              <select value={filterStatus} onChange={(e)=> setFilterStatus(e.target.value as any)} className="rounded border-gray-300 bg-white text-sm py-2 px-3">
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg shadow-sm p-4 mb-6">
                 <option value="open">Açık</option>
                 <option value="reviewed">Gözden</option>
-                <option value="archived">Arşiv</option>
-              </select>
-            </div>
-            <div className="flex-1" />
-            <input value={search} onChange={(e)=> setSearch(e.target.value)} className="w-full sm:w-64 rounded border-gray-300 bg-white text-[11px] py-1 px-2" placeholder="Not içinde ara..." />
+              <h2 className="text-lg font-semibold text-amber-800 flex items-center gap-2">
+                <span className="text-xl">🔥</span>
+                Bugün Tekrar Edilecekler
+              <button onClick={()=>bulkPostpone(3)} className="px-3 py-1 text-sm bg-white border border-amber-300 rounded-md hover:bg-amber-50">Tümü +3 Gün</button>
+              <button onClick={()=>bulkPostpone(7)} className="px-3 py-1 text-sm bg-white border border-amber-300 rounded-md hover:bg-amber-50">Tümü +7 Gün</button>
+              <button onClick={bulkSmartReview} className="px-3 py-1 text-sm bg-amber-600 text-white rounded-md hover:bg-amber-700">Tümünü Gözden Geçir</button>
+            <input value={search} onChange={(e)=> setSearch(e.target.value)} className="w-full sm:w-64 rounded border-gray-300 bg-white text-sm py-2 px-3" placeholder="Notlarda ara..." />
           </div>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
           {filtered.length === 0 ? (
-            <div className="p-6 text-center text-gray-500 text-sm">Kayıt bulunamadı.</div>
+            <div className="p-12 text-center">
+              <span className="text-6xl mb-4 block">📚</span>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz hata kaydı yok</h3>
+              <p className="text-gray-600">Yanlış yaptığın soruları buraya ekleyerek tekrar edebilirsin</p>
+            </div>
+              <span className="text-4xl mb-2 block">🎉</span>
+              <p className="text-amber-800 font-medium">Harika! Bugün tekrar edilecek hata yok.</p>
+              <p className="text-sm text-amber-600 mt-1">Yeni hatalar eklemeyi unutma!</p>
+            </div>
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-gray-200">
               {filtered.map((m) => (
-                <li key={m.id} className="p-2.5 flex items-start gap-3">
+                <li key={m.id} className="p-4 hover:bg-gray-50 transition-colors flex items-start gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-semibold text-gray-900">{m.dersAdi}</span>
+                      <span className="text-sm font-semibold text-gray-900">{m.dersAdi}</span>
                       {(m.topics || []).slice(0,1).map(t => (
-                        <span key={t} className="px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 text-[10px]">{t}</span>
+                        <span key={t} className="px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium">{t}</span>
                       ))}
-                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] border ${m.status==='open'?'bg-amber-50 text-amber-700 border-amber-200': m.status==='reviewed'?'bg-emerald-50 text-emerald-700 border-emerald-200':'bg-gray-50 text-gray-600 border-gray-200'}`}>{m.status}</span>
-                    </div>
-                    {m.note && <p className="text-[11px] text-gray-600 mt-0.5">{m.note}</p>}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${
+                        m.status==='open'?'bg-amber-50 text-amber-700 border-amber-200': 
+                        m.status==='reviewed'?'bg-green-50 text-green-700 border-green-200':
+                        'bg-gray-50 text-gray-600 border-gray-200'
+                      }`}>
+                        {m.status === 'open' ? 'Açık' : m.status === 'reviewed' ? 'Gözden Geçirildi' : 'Arşivlendi'}
+                      </span>
+                    {m.note && <p className="text-sm text-gray-600 mt-1">{m.note}</p>}
+                    {m.note && <p className="text-sm text-gray-600 mt-2">{m.note}</p>}
                     {m.imageUrl && (
-                      <div className="mt-1">
-                        <a href={m.imageUrl} target="_blank" rel="noreferrer" className="text-[11px] text-sky-700 underline">Görseli aç</a>
+                      <div className="mt-2">
+                        <a href={m.imageUrl} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline">📷 Soru görselini aç</a>
                       </div>
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    {m.status !== 'open' && (
-                      <button onClick={()=>updateStatus(m.id,'open')} className="px-1.5 py-0.5 text-[10px] border rounded">Açık</button>
-                    )}
+                    <button onClick={()=>postpone(m.id, 3)} className="px-2 py-1 text-xs bg-gray-100 border rounded hover:bg-gray-200">+3 Gün</button>
+                      <button onClick={()=>updateStatus(m.id,'open')} className="px-2 py-1 text-xs bg-amber-100 text-amber-800 border border-amber-300 rounded hover:bg-amber-200">Açık</button>
+                    <button onClick={()=>smartReview(m.id, m)} className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">Gözden Geçir</button>
                     {m.status !== 'reviewed' && (
-                      <button onClick={()=>updateStatus(m.id,'reviewed')} className="px-1.5 py-0.5 text-[10px] border rounded">Gözden</button>
+                      <button onClick={()=>updateStatus(m.id,'reviewed')} className="px-2 py-1 text-xs bg-green-100 text-green-800 border border-green-300 rounded hover:bg-green-200">Gözden Geçir</button>
                     )}
                     {m.status !== 'archived' && (
-                      <button onClick={()=>updateStatus(m.id,'archived')} className="px-1.5 py-0.5 text-[10px] border rounded">Arşiv</button>
+                      <button onClick={()=>updateStatus(m.id,'archived')} className="px-2 py-1 text-xs bg-gray-100 text-gray-800 border border-gray-300 rounded hover:bg-gray-200">Arşivle</button>
                     )}
                   </div>
                 </li>
@@ -277,7 +343,7 @@ const MistakesPage: React.FC<MistakesPageProps> = ({ user }) => {
         </div>
 
         {toast && (
-          <div className={`fixed bottom-4 right-4 px-3 py-2 rounded text-white text-sm ${toast.type==='success'?'bg-emerald-600':'bg-rose-600'}`}>{toast.message}</div>
+          <div className={`fixed bottom-4 right-4 px-4 py-3 rounded-lg text-white text-sm shadow-lg ${toast.type==='success'?'bg-green-600':'bg-red-600'}`}>{toast.message}</div>
         )}
       </main>
     </div>
