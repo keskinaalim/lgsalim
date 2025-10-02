@@ -686,6 +686,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
         {/* Content based on active tab */}
         {activeTab === 'trend' && (
+          <>
           <div className="space-y-6">
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -787,53 +788,54 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             </div>
           </div>
 
-          {/* Motivasyon ve Başarı Takibi */}
-          <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-bold mb-2">Başarı Yolculuğun</h3>
-                <p className="text-purple-100 mb-4">LGS'ye hazırlık sürecindeki gelişimin</p>
+            {/* Motivasyon ve Başarı Takibi */}
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-6 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold mb-2">Başarı Yolculuğun</h3>
+                  <p className="text-purple-100 mb-4">LGS'ye hazırlık sürecindeki gelişimin</p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold">{userStats.totalTests}</div>
+                      <div className="text-sm text-purple-100">Çözülen Test</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold">{earnedBadges.length}</div>
+                      <div className="text-sm text-purple-100">Kazanılan Rozet</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold">{Math.max(0, Math.round((480 - userStats.avgScore) / 10))}</div>
+                      <div className="text-sm text-purple-100">Hafta Kaldı</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold">%{Math.round(lgsTargetAnalysis.successProbability)}</div>
+                      <div className="text-sm text-purple-100">Hedef Yakınlık</div>
+                    </div>
+                  </div>
+                </div>
                 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{userStats.totalTests}</div>
-                    <div className="text-sm text-purple-100">Çözülen Test</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{earnedBadges.length}</div>
-                    <div className="text-sm text-purple-100">Kazanılan Rozet</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{Math.max(0, Math.round((480 - userStats.avgScore) / 10))}</div>
-                    <div className="text-sm text-purple-100">Hafta Kaldı</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">%{Math.round(lgsTargetAnalysis.successProbability)}</div>
-                    <div className="text-sm text-purple-100">Hedef Yakınlık</div>
+                <div className="hidden md:block">
+                  <div className="w-24 h-24 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                    <TargetIcon className="h-12 w-12 text-white" />
                   </div>
                 </div>
               </div>
               
-              <div className="hidden md:block">
-                <div className="w-24 h-24 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                  <AwardIcon className="h-12 w-12 text-white" />
+              <div className="mt-6 pt-6 border-t border-purple-400">
+                <div className="flex items-center justify-between">
+                  <span className="text-purple-100">LGS Hedefe İlerleme</span>
+                  <span className="font-bold">%{Math.round(lgsTargetAnalysis.successProbability)}</span>
+                </div>
+                <div className="mt-2 w-full bg-purple-400 rounded-full h-3">
+                  <div 
+                    className="bg-white h-3 rounded-full transition-all duration-1000"
+                    style={{ width: `${lgsTargetAnalysis.successProbability}%` }}
+                  />
                 </div>
               </div>
             </div>
-            
-            <div className="mt-6 pt-6 border-t border-purple-400">
-              <div className="flex items-center justify-between">
-                <span className="text-purple-100">LGS Hedefe İlerleme</span>
-                <span className="font-bold">%{Math.round(lgsTargetAnalysis.successProbability)}</span>
-              </div>
-              <div className="mt-2 w-full bg-purple-400 rounded-full h-3">
-                <div 
-                  className="bg-white h-3 rounded-full transition-all duration-1000"
-                  style={{ width: `${lgsTargetAnalysis.successProbability}%` }}
-                />
-              </div>
-            </div>
-          </div>
+          </>
         )}
 
         {activeTab === 'courses' && (
