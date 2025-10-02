@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { PieChart, Pie, Cell, AreaChart, Area, ScatterChart, Scatter, RadialBarChart, RadialBar } from 'recharts';
 import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, where, Timestamp } from 'firebase/firestore';
 import { signOut, User } from 'firebase/auth';
 import { db, auth } from '../services/firebase';
@@ -25,11 +26,29 @@ import { getCourseTopics } from '../data/topics';
 import type { BadgeKey } from './BadgesBar';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 
+// Additional Icons
+const CalendarDaysIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+    <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" />
+  </svg>
+);
+
 // Modern Icons
 const TrendingUpIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
     <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
     <polyline points="17 6 23 6 23 12" />
+  </svg>
+);
+
+const TrendingDownIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
+    <polyline points="17 18 23 18 23 12" />
   </svg>
 );
 
@@ -70,10 +89,30 @@ const BrainIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
   </svg>
 );
 
+const ClockIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12,6 12,12 16,14" />
+  </svg>
+);
+
+const AwardIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <circle cx="12" cy="8" r="7" />
+    <polyline points="8.21,13.89 7,23 12,20 17,23 15.79,13.88" />
+  </svg>
+);
+
 const PlusIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
     <line x1="12" y1="5" x2="12" y2="19" />
     <line x1="5" y1="12" x2="19" y2="12" />
+  </svg>
+);
+
+const FireIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z" />
   </svg>
 );
 
@@ -96,6 +135,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; id?: string; message?: string }>({ isOpen: false });
   const [sortConfig, setSortConfig] = useState<{ key: keyof TestResult; direction: 'ascending' | 'descending' } | null>(null);
   const [selectedTimeRange, setSelectedTimeRange] = useState<'7' | '30' | '90' | 'all'>('30');
+  const [studyStreak, setStudyStreak] = useState(0);
 
   // Data fetching
   useEffect(() => {
@@ -154,6 +194,35 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     return scope === 'self' ? results.filter(r => r.kullaniciId === user.uid) : results;
   }, [results, scope, user.uid]);
 
+  // Study streak calculation
+  useEffect(() => {
+    const userData = results.filter(r => r.kullaniciId === user.uid);
+    const today = new Date();
+    const dateSet = new Set<string>();
+    
+    userData.forEach(r => {
+      if (r.createdAt) {
+        const dt = new Date(r.createdAt.toDate());
+        const key = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).toISOString().slice(0, 10);
+        dateSet.add(key);
+      }
+    });
+    
+    let streak = 0;
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().slice(0, 10);
+      if (dateSet.has(key)) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    
+    setStudyStreak(streak);
+  }, [results, user.uid]);
+
   // Course options
   const courseOptions = useMemo(() => {
     const courses = Array.from(new Set(filteredData.map(r => r.dersAdi))).sort();
@@ -161,6 +230,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   }, [filteredData]);
 
   // User statistics
+  // User statistics with more detailed calculations
   const userStats = useMemo(() => {
     const userData = results.filter(r => r.kullaniciId === user.uid);
     if (userData.length === 0) return { avgScore: 0, totalTests: 0, recentChange: 0, targetRemaining: 480 };
@@ -194,10 +264,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       recentChange = recentAvg - previousAvg;
     }
 
+    const totalQuestions = userData.reduce((sum, r) => sum + r.dogruSayisi + r.yanlisSayisi + r.bosSayisi, 0);
+    const totalCorrect = userData.reduce((sum, r) => sum + r.dogruSayisi, 0);
+    const totalWrong = userData.reduce((sum, r) => sum + r.yanlisSayisi, 0);
+
     return {
       avgScore,
       totalTests: userData.length,
       recentChange,
+      totalQuestions,
+      totalCorrect,
+      totalWrong,
       targetRemaining: Math.max(0, 480 - avgScore)
     };
   }, [results, user.uid]);
@@ -207,12 +284,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     const { avgScore, recentChange } = userStats;
     if (avgScore >= 400 && recentChange >= 0) return { level: 'Düşük', value: 25, color: '#48BB78' };
     if (avgScore >= 350 && recentChange >= -5) return { level: 'Orta', value: 50, color: '#F6AD55' };
+    if (avgScore >= 350 && recentChange >= -5) return { level: 'Orta', value: 50, color: '#F6AD55' };
     return { level: 'Yüksek', value: 75, color: '#F56565' };
   }, [userStats]);
 
   // Badge calculation
   const earnedBadges = useMemo((): BadgeKey[] => {
     const userData = results.filter(r => r.kullaniciId === user.uid);
+    const badges: BadgeKey[] = [];
     const badges: BadgeKey[] = [];
     
     if (userData.length >= 1) badges.push('first_test');
@@ -241,6 +320,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     if (streak >= 7) badges.push('seven_day_streak');
     return badges;
   }, [results, user.uid]);
+  }, [results, user.uid]);
 
   // LGS Hedef Hesaplama
   const lgsTargetAnalysis = useMemo(() => {
@@ -261,6 +341,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     return { currentScore, targetScore, remainingPoints, successProbability };
   }, [results, user.uid]);
 
+  // Branş Bazlı Detaylı Analiz
   // Branş Bazlı Detaylı Analiz
   const subjectAnalysis = useMemo(() => {
     const userData = results.filter(r => r.kullaniciId === user.uid);
@@ -287,6 +368,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   }, [results, user.uid]);
 
   // Haftalık Çalışma Önerisi
+  // Haftalık Çalışma Önerisi
   const weeklyStudyPlan = useMemo(() => {
     const weakSubjects = subjectAnalysis
       .filter(s => s.avgScore < 70)
@@ -308,6 +390,81 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       ]
     };
   }, [subjectAnalysis]);
+
+  // Daily activity data for the last 30 days
+  const dailyActivityData = useMemo(() => {
+    const userData = results.filter(r => r.kullaniciId === user.uid);
+    const last30Days = [];
+    const today = new Date();
+    
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().slice(0, 10);
+      
+      const dayTests = userData.filter(r => {
+        if (!r.createdAt) return false;
+        const testDate = new Date(r.createdAt.toDate());
+        return testDate.toISOString().slice(0, 10) === dateStr;
+      });
+      
+      last30Days.push({
+        date: dateStr,
+        tests: dayTests.length,
+        avgScore: dayTests.length > 0 ? 
+          dayTests.reduce((sum, r) => {
+            const total = r.dogruSayisi + r.yanlisSayisi + r.bosSayisi;
+            const net = r.dogruSayisi - r.yanlisSayisi / 4;
+            return sum + (total > 0 ? (Math.max(0, net) / total) * 100 : 0);
+          }, 0) / dayTests.length : 0
+      });
+    }
+    
+    return last30Days;
+  }, [results, user.uid]);
+
+  // Subject distribution data
+  const subjectDistributionData = useMemo(() => {
+    const userData = results.filter(r => r.kullaniciId === user.uid);
+    const distribution: { [key: string]: number } = {};
+    
+    userData.forEach(r => {
+      distribution[r.dersAdi] = (distribution[r.dersAdi] || 0) + 1;
+    });
+    
+    return Object.keys(distribution).map(subject => ({
+      name: subject,
+      value: distribution[subject],
+      percentage: Math.round((distribution[subject] / userData.length) * 100)
+    }));
+  }, [results, user.uid]);
+
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
+
+  // Time of day analysis
+  const timeAnalysisData = useMemo(() => {
+    const userData = results.filter(r => r.kullaniciId === user.uid && r.createdAt);
+    const timeSlots = {
+      'Sabah (06-12)': 0,
+      'Öğlen (12-18)': 0,
+      'Akşam (18-24)': 0,
+      'Gece (00-06)': 0
+    };
+    
+    userData.forEach(r => {
+      const hour = new Date(r.createdAt!.toDate()).getHours();
+      if (hour >= 6 && hour < 12) timeSlots['Sabah (06-12)']++;
+      else if (hour >= 12 && hour < 18) timeSlots['Öğlen (12-18)']++;
+      else if (hour >= 18 && hour < 24) timeSlots['Akşam (18-24)']++;
+      else timeSlots['Gece (00-06)']++;
+    });
+    
+    return Object.keys(timeSlots).map(time => ({
+      name: time,
+      value: timeSlots[time as keyof typeof timeSlots],
+      percentage: userData.length > 0 ? Math.round((timeSlots[time as keyof typeof timeSlots] / userData.length) * 100) : 0
+    }));
+  }, [results, user.uid]);
 
   // Event handlers
   const handleAddResult = async (dersAdi: string, dogruSayisi: number, yanlisSayisi: number, bosSayisi: number, topics: string[]) => {
@@ -428,6 +585,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         <div className="mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
+            <div>
               <h1 className="text-3xl font-bold text-slate-900 mb-2">LGS Hazırlık Paneli</h1>
               <p className="text-slate-600">LGS hedefine giden yolda performansını takip et ve başarıya ulaş</p>
             </div>
@@ -510,7 +668,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           </div>
         </div>
 
-        {/* KPI Cards */}
+        {/* Enhanced KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Ortalama Puan"
@@ -520,11 +678,50 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             infoTitle="Son 20 test ortalaması"
           />
           <StatCard
+            title="Toplam Test"
+            value={userStats.totalTests}
+            icon={<ClipboardListIcon className="h-4 w-4" />}
+            badgeLabel={<ScopeBadge scope="self" />}
+            infoTitle="Çözülen toplam test sayısı"
+          />
+          <StatCard
             title="Son 5 Değişim"
             value={`${userStats.recentChange >= 0 ? '+' : ''}${userStats.recentChange.toFixed(1)}%`}
             icon={<TrendingUpIcon className={`h-4 w-4 ${userStats.recentChange >= 0 ? 'text-green-600' : 'text-red-600'}`} />}
             badgeLabel={<ScopeBadge scope="self" />}
             infoTitle="Son 5 ve önceki 5 test karşılaştırması"
+          />
+          <StatCard
+            title="Çalışma Serisi"
+            value={`${studyStreak} gün`}
+            icon={<FireIcon className="h-4 w-4" />}
+            badgeLabel={<ScopeBadge scope="self" />}
+            infoTitle="Peş peşe çalışma günü sayısı"
+          />
+        </div>
+
+        {/* Additional Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatCard
+            title="Toplam Soru"
+            value={userStats.totalQuestions}
+            icon={<BookIcon className="h-4 w-4" />}
+            badgeLabel={<ScopeBadge scope="self" />}
+            infoTitle="Çözülen toplam soru sayısı"
+          />
+          <StatCard
+            title="Doğru Sayısı"
+            value={userStats.totalCorrect}
+            icon={<CheckCircleIcon className="h-4 w-4" />}
+            badgeLabel={<ScopeBadge scope="self" />}
+            infoTitle="Toplam doğru cevap sayısı"
+          />
+          <StatCard
+            title="Yanlış Sayısı"
+            value={userStats.totalWrong}
+            icon={<XCircleIcon className="h-4 w-4" />}
+            badgeLabel={<ScopeBadge scope="self" />}
+            infoTitle="Toplam yanlış cevap sayısı"
           />
           <StatCard
             title="Hedefe Kalan"
@@ -533,6 +730,57 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             badgeLabel={<ScopeBadge scope="self" />}
             infoTitle="480 puan hedefine kalan mesafe"
           />
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+        </div>
+
+        {/* Risk Analysis Card */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+          <div className="lg:col-span-3">
+            {/* Daily Activity Chart */}
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Son 30 Gün Aktivite</h3>
+                  <p className="text-slate-600 text-sm mt-1">Günlük test çözme alışkanlığın</p>
+                </div>
+                <ScopeBadge scope="self" showText />
+              </div>
+              
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={dailyActivityData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="date" 
+                    fontSize={10}
+                    tickFormatter={(value) => {
+                      const date = new Date(value);
+                      return `${date.getDate()}/${date.getMonth() + 1}`;
+                    }}
+                  />
+                  <YAxis fontSize={10} />
+                  <Tooltip 
+                    labelFormatter={(value) => {
+                      const date = new Date(value as string);
+                      return date.toLocaleDateString('tr-TR');
+                    }}
+                    formatter={(value: number, name: string) => [
+                      name === 'tests' ? `${value} test` : `%${Math.round(value as number)}`,
+                      name === 'tests' ? 'Test Sayısı' : 'Ortalama Başarı'
+                    ]}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="tests" 
+                    stroke="#3b82f6" 
+                    fill="#3b82f6" 
+                    fillOpacity={0.1}
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          
           <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -568,6 +816,99 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           </div>
         </div>
 
+        {/* Subject Analysis and Distribution */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Subject Distribution Pie Chart */}
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Branş Dağılımı</h3>
+                <p className="text-slate-600 text-sm mt-1">Hangi derslerde daha çok test çözdüğün</p>
+              </div>
+              <ScopeBadge scope="self" showText />
+            </div>
+            
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={subjectDistributionData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {subjectDistributionData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value: number, name: string, props: any) => [
+                  `${value} test (%${props.payload.percentage})`,
+                  props.payload.name
+                ]} />
+              </PieChart>
+            </ResponsiveContainer>
+            
+            <div className="grid grid-cols-2 gap-2 mt-4">
+              {subjectDistributionData.map((entry, index) => (
+                <div key={entry.name} className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                  />
+                  <span className="text-xs text-slate-600">{entry.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Time Analysis */}
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Çalışma Saatleri</h3>
+                <p className="text-slate-600 text-sm mt-1">Hangi saatlerde daha verimli olduğun</p>
+              </div>
+              <ScopeBadge scope="self" showText />
+            </div>
+            
+            <div className="space-y-4">
+              {timeAnalysisData.map((time, index) => (
+                <div key={time.name} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <ClockIcon className="h-4 w-4 text-slate-500" />
+                    <span className="text-sm font-medium text-slate-700">{time.name}</span>
+                  </div>
+                  <div className="flex items-center gap-3 flex-1 ml-4">
+                    <div className="flex-1 bg-slate-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-500" 
+                        style={{ width: `${time.percentage}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-semibold text-slate-900 w-12 text-right">
+                      {time.value}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <ClockIcon className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-semibold text-blue-900">Öneri</span>
+              </div>
+              <p className="text-sm text-blue-800">
+                {timeAnalysisData.length > 0 && timeAnalysisData.reduce((max, current) => 
+                  current.value > max.value ? current : max
+                ).name} saatlerinde daha aktifsin. Bu saatleri verimli kullanmaya devam et!
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Branş Performans Analizi */}
         <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm mb-8">
           <div className="flex items-center justify-between mb-6">
@@ -593,6 +934,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-600">Ortalama</span>
                     <span className="font-semibold">%{subject.avgScore}</span>
+                    <span className="font-semibold">%{subject.avgScore}</span>
                   </div>
                   <div className="w-full bg-slate-200 rounded-full h-2">
                     <div 
@@ -605,6 +947,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   </div>
                   <div className="flex justify-between text-xs text-slate-500">
                     <span>Son Sınav: %{subject.lastScore}</span>
+                    <span>Gelişim: {subject.improvement >= 0 ? '+' : ''}{subject.improvement}%</span>
                     <span>Gelişim: {subject.improvement >= 0 ? '+' : ''}{subject.improvement}%</span>
                   </div>
                 </div>
@@ -622,6 +965,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             <div>
               <h2 className="text-xl font-semibold text-slate-900">Akıllı Çalışma Önerisi</h2>
               <p className="text-slate-600 text-sm">Performansına göre özelleştirilmiş haftalık plan</p>
+              <p className="text-slate-600 text-sm">Performansına göre özelleştirilmiş haftalık plan</p>
             </div>
           </div>
 
@@ -630,6 +974,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
                 <AlertTriangleIcon className="h-4 w-4 text-red-500" />
                 Odaklanman Gereken Alanlar
+              </h3>
               </h3>
               <div className="space-y-2">
                 {weeklyStudyPlan.focusAreas.map((area) => (
@@ -648,6 +993,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               </h3>
               <div className="space-y-2">
                 {weeklyStudyPlan.dailyGoals.map((goal, index) => (
+                {weeklyStudyPlan.dailyGoals.map((goal, index) => (
                   <div key={index} className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
                     <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
                       <span className="text-white text-xs font-bold">{index + 1}</span>
@@ -655,6 +1001,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                     <span className="text-green-900">{goal}</span>
                   </div>
                 ))}
+              </div>
               </div>
             </div>
           </div>
@@ -664,6 +1011,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         <div className="mb-6">
           <nav className="flex space-x-8 border-b border-slate-200">
             {[
+              { key: 'trend', label: 'Trend Analizi', icon: TrendingUpIcon },
               { key: 'trend', label: 'Trend Analizi', icon: TrendingUpIcon },
               { key: 'courses', label: 'Branş Analizi', icon: BookIcon },
               { key: 'table', label: 'Detaylı Tablo', icon: BrainIcon },
@@ -685,6 +1033,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         </div>
 
         {/* Content based on active tab */}
+        {activeTab === 'trend' && (
         {activeTab === 'trend' && (
           <>
           <div className="space-y-6">
@@ -708,6 +1057,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 </div>
                 <TimeSeriesChart
                   data={filteredData}
+                  data={filteredData}
                   height={300}
                   showFilter={true}
                   onEnlarge={() => setChartModal({ isOpen: true, type: 'timeseries' })}
@@ -717,6 +1067,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
                 <CourseSuccessChart
                   data={filteredData}
+                  data={filteredData}
                   height={300}
                   onEnlarge={() => setChartModal({ isOpen: true, type: 'courses' })}
                   scopeBadge={<ScopeBadge scope={scope} />}
@@ -725,6 +1076,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             </div>
 
             {/* LGS Branş Radar Grafiği */}
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
             <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
               <div className="flex items-center justify-between mb-6">
                 <div>
@@ -746,6 +1098,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   />
                   <Radar
                     name="Ortalama Performans"
+                    name="Ortalama Performans"
                     dataKey="avgScore"
                     stroke="#3b82f6"
                     fill="#3b82f6"
@@ -754,6 +1107,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   />
                   <Radar
                     name="Son Sınav"
+                    name="Son Sınav"
                     dataKey="lastScore"
                     stroke="#10b981"
                     fill="#10b981"
@@ -761,6 +1115,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                     strokeWidth={2}
                   />
                   <Tooltip />
+                </RadarChart>
                 </RadarChart>
               </ResponsiveContainer>
             </div>
@@ -771,6 +1126,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             </div>
 
             {/* Additional Insights */}
+            {/* Additional Insights */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
                 <InsightsCards data={results} currentUserId={user.uid} />
@@ -779,6 +1135,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 <QuickStats data={filteredData} currentUserId={user.uid} />
               </div>
               <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold text-slate-900">Rozetler</h3>
                   <LevelBadge level="giris" compact />
@@ -798,6 +1155,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold">{userStats.totalTests}</div>
+                      <div className="text-2xl font-bold">{userStats.totalTests}</div>
                       <div className="text-sm text-purple-100">Çözülen Test</div>
                     </div>
                     <div className="text-center">
@@ -806,6 +1164,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold">{Math.max(0, Math.round((480 - userStats.avgScore) / 10))}</div>
+                      <div className="text-2xl font-bold">{Math.max(0, Math.round((480 - userStats.avgScore) / 10))}</div>
                       <div className="text-sm text-purple-100">Hafta Kaldı</div>
                     </div>
                     <div className="text-center">
@@ -813,6 +1172,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                       <div className="text-sm text-purple-100">Hedef Yakınlık</div>
                     </div>
                   </div>
+                </div>
                 </div>
                 
                 <div className="hidden md:block">
@@ -830,6 +1190,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 <div className="mt-2 w-full bg-purple-400 rounded-full h-3">
                   <div 
                     className="bg-white h-3 rounded-full transition-all duration-1000"
+                    className="bg-white h-3 rounded-full transition-all duration-1000"
                     style={{ width: `${lgsTargetAnalysis.successProbability}%` }}
                   />
                 </div>
@@ -838,6 +1199,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
           </>
         )}
 
+        {activeTab === 'courses' && (
         {activeTab === 'courses' && (
           <div className="space-y-6">
             <div className="flex items-center gap-4 mb-6">
@@ -848,6 +1210,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 placeholder="Ders seçin"
               />
               <ScopeBadge scope={scope} showText />
+            </div>
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -867,6 +1230,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
         {activeTab === 'table' && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-200">
               <div className="flex items-center justify-between">
                 <div>
@@ -876,6 +1240,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 <div className="flex items-center gap-3">
                   <ScopeBadge scope={scope} showText />
                   <button
+                  <button
                     onClick={() => setIsAdding(true)}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
                   >
@@ -884,6 +1249,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   </button>
                 </div>
               </div>
+            </div>
             </div>
             <TestResultsTable
               results={sortedResults}
@@ -900,6 +1266,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               isCompact={false}
             />
           </div>
+          </div>
         )}
       </main>
 
@@ -914,6 +1281,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
       <MistakeModal
         isOpen={mistakeModal.isOpen}
+        isOpen={mistakeModal.isOpen}
         dersAdi={mistakeModal.result?.dersAdi || ''}
         topicOptions={getCourseTopics(mistakeModal.result?.dersAdi || '')}
         onClose={() => setMistakeModal({ isOpen: false })}
@@ -922,6 +1290,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
       <ChartModal
         isOpen={chartModal.isOpen}
+        onClose={() => setChartModal({ isOpen: false })}
         onClose={() => setChartModal({ isOpen: false })}
       >
         {chartModal.type === 'timeseries' && (
@@ -943,6 +1312,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         )}
       </ChartModal>
 
+
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         message={confirmModal.message || ''}
@@ -952,6 +1322,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
       {toast && (
         <Toast
+        <Toast
           message={toast.message}
           type={toast.type}
           onClose={() => setToast(null)}
@@ -960,5 +1331,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     </div>
   );
 };
+
 
 export default Dashboard;
