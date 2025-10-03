@@ -24,7 +24,7 @@ import Toast from './Toast';
 import ConfirmModal from './ConfirmModal';
 import { getCourseTopics } from '../data/topics';
 import type { BadgeKey } from './BadgesBar';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 
 // Additional Icons
 const CalendarDaysIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
