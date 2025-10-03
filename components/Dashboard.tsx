@@ -116,6 +116,32 @@ const FireIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
   </svg>
 );
 
+const ClipboardListIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <path d="M12 11h4" />
+    <path d="M12 16h4" />
+    <path d="M8 11h.01" />
+    <path d="M8 16h.01" />
+  </svg>
+);
+
+const CheckCircleIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <polyline points="22,4 12,14.01 9,11.01" />
+  </svg>
+);
+
+const XCircleIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="m15 9-6 6" />
+    <path d="m9 9 6 6" />
+  </svg>
+);
+
 interface DashboardProps {
   user: User;
 }
@@ -284,14 +310,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     const { avgScore, recentChange } = userStats;
     if (avgScore >= 400 && recentChange >= 0) return { level: 'Düşük', value: 25, color: '#48BB78' };
     if (avgScore >= 350 && recentChange >= -5) return { level: 'Orta', value: 50, color: '#F6AD55' };
-    if (avgScore >= 350 && recentChange >= -5) return { level: 'Orta', value: 50, color: '#F6AD55' };
     return { level: 'Yüksek', value: 75, color: '#F56565' };
   }, [userStats]);
 
   // Badge calculation
   const earnedBadges = useMemo((): BadgeKey[] => {
     const userData = results.filter(r => r.kullaniciId === user.uid);
-    const badges: BadgeKey[] = [];
     const badges: BadgeKey[] = [];
     
     if (userData.length >= 1) badges.push('first_test');
@@ -320,7 +344,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     if (streak >= 7) badges.push('seven_day_streak');
     return badges;
   }, [results, user.uid]);
-  }, [results, user.uid]);
 
   // LGS Hedef Hesaplama
   const lgsTargetAnalysis = useMemo(() => {
@@ -341,7 +364,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     return { currentScore, targetScore, remainingPoints, successProbability };
   }, [results, user.uid]);
 
-  // Branş Bazlı Detaylı Analiz
   // Branş Bazlı Detaylı Analiz
   const subjectAnalysis = useMemo(() => {
     const userData = results.filter(r => r.kullaniciId === user.uid);
@@ -367,7 +389,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     });
   }, [results, user.uid]);
 
-  // Haftalık Çalışma Önerisi
   // Haftalık Çalışma Önerisi
   const weeklyStudyPlan = useMemo(() => {
     const weakSubjects = subjectAnalysis
@@ -585,7 +606,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         <div className="mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-            <div>
               <h1 className="text-3xl font-bold text-slate-900 mb-2">LGS Hazırlık Paneli</h1>
               <p className="text-slate-600">LGS hedefine giden yolda performansını takip et ve başarıya ulaş</p>
             </div>
@@ -730,7 +750,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             badgeLabel={<ScopeBadge scope="self" />}
             infoTitle="480 puan hedefine kalan mesafe"
           />
-          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
         </div>
 
         {/* Risk Analysis Card */}
@@ -934,7 +953,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-600">Ortalama</span>
                     <span className="font-semibold">%{subject.avgScore}</span>
-                    <span className="font-semibold">%{subject.avgScore}</span>
                   </div>
                   <div className="w-full bg-slate-200 rounded-full h-2">
                     <div 
@@ -947,7 +965,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   </div>
                   <div className="flex justify-between text-xs text-slate-500">
                     <span>Son Sınav: %{subject.lastScore}</span>
-                    <span>Gelişim: {subject.improvement >= 0 ? '+' : ''}{subject.improvement}%</span>
                     <span>Gelişim: {subject.improvement >= 0 ? '+' : ''}{subject.improvement}%</span>
                   </div>
                 </div>
@@ -965,7 +982,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             <div>
               <h2 className="text-xl font-semibold text-slate-900">Akıllı Çalışma Önerisi</h2>
               <p className="text-slate-600 text-sm">Performansına göre özelleştirilmiş haftalık plan</p>
-              <p className="text-slate-600 text-sm">Performansına göre özelleştirilmiş haftalık plan</p>
             </div>
           </div>
 
@@ -974,7 +990,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
                 <AlertTriangleIcon className="h-4 w-4 text-red-500" />
                 Odaklanman Gereken Alanlar
-              </h3>
               </h3>
               <div className="space-y-2">
                 {weeklyStudyPlan.focusAreas.map((area) => (
@@ -993,7 +1008,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               </h3>
               <div className="space-y-2">
                 {weeklyStudyPlan.dailyGoals.map((goal, index) => (
-                {weeklyStudyPlan.dailyGoals.map((goal, index) => (
                   <div key={index} className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
                     <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
                       <span className="text-white text-xs font-bold">{index + 1}</span>
@@ -1001,7 +1015,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                     <span className="text-green-900">{goal}</span>
                   </div>
                 ))}
-              </div>
               </div>
             </div>
           </div>
@@ -1011,7 +1024,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         <div className="mb-6">
           <nav className="flex space-x-8 border-b border-slate-200">
             {[
-              { key: 'trend', label: 'Trend Analizi', icon: TrendingUpIcon },
               { key: 'trend', label: 'Trend Analizi', icon: TrendingUpIcon },
               { key: 'courses', label: 'Branş Analizi', icon: BookIcon },
               { key: 'table', label: 'Detaylı Tablo', icon: BrainIcon },
@@ -1034,8 +1046,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
         {/* Content based on active tab */}
         {activeTab === 'trend' && (
-        {activeTab === 'trend' && (
-          <>
           <div className="space-y-6">
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1057,7 +1067,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 </div>
                 <TimeSeriesChart
                   data={filteredData}
-                  data={filteredData}
                   height={300}
                   showFilter={true}
                   onEnlarge={() => setChartModal({ isOpen: true, type: 'timeseries' })}
@@ -1067,7 +1076,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
                 <CourseSuccessChart
                   data={filteredData}
-                  data={filteredData}
                   height={300}
                   onEnlarge={() => setChartModal({ isOpen: true, type: 'courses' })}
                   scopeBadge={<ScopeBadge scope={scope} />}
@@ -1076,7 +1084,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             </div>
 
             {/* LGS Branş Radar Grafiği */}
-            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
             <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
               <div className="flex items-center justify-between mb-6">
                 <div>
@@ -1098,7 +1105,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   />
                   <Radar
                     name="Ortalama Performans"
-                    name="Ortalama Performans"
                     dataKey="avgScore"
                     stroke="#3b82f6"
                     fill="#3b82f6"
@@ -1107,7 +1113,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   />
                   <Radar
                     name="Son Sınav"
-                    name="Son Sınav"
                     dataKey="lastScore"
                     stroke="#10b981"
                     fill="#10b981"
@@ -1115,7 +1120,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                     strokeWidth={2}
                   />
                   <Tooltip />
-                </RadarChart>
                 </RadarChart>
               </ResponsiveContainer>
             </div>
@@ -1126,7 +1130,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
             </div>
 
             {/* Additional Insights */}
-            {/* Additional Insights */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
                 <InsightsCards data={results} currentUserId={user.uid} />
@@ -1136,14 +1139,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               </div>
               <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold text-slate-900">Rozetler</h3>
                   <LevelBadge level="giris" compact />
                 </div>
                 <BadgesBar earned={earnedBadges} compact={false} />
               </div>
             </div>
-          </div>
 
             {/* Motivasyon ve Başarı Takibi */}
             <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-6 text-white">
@@ -1155,7 +1156,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold">{userStats.totalTests}</div>
-                      <div className="text-2xl font-bold">{userStats.totalTests}</div>
                       <div className="text-sm text-purple-100">Çözülen Test</div>
                     </div>
                     <div className="text-center">
@@ -1164,7 +1164,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold">{Math.max(0, Math.round((480 - userStats.avgScore) / 10))}</div>
-                      <div className="text-2xl font-bold">{Math.max(0, Math.round((480 - userStats.avgScore) / 10))}</div>
                       <div className="text-sm text-purple-100">Hafta Kaldı</div>
                     </div>
                     <div className="text-center">
@@ -1172,7 +1171,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                       <div className="text-sm text-purple-100">Hedef Yakınlık</div>
                     </div>
                   </div>
-                </div>
                 </div>
                 
                 <div className="hidden md:block">
@@ -1190,16 +1188,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 <div className="mt-2 w-full bg-purple-400 rounded-full h-3">
                   <div 
                     className="bg-white h-3 rounded-full transition-all duration-1000"
-                    className="bg-white h-3 rounded-full transition-all duration-1000"
                     style={{ width: `${lgsTargetAnalysis.successProbability}%` }}
                   />
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
 
-        {activeTab === 'courses' && (
         {activeTab === 'courses' && (
           <div className="space-y-6">
             <div className="flex items-center gap-4 mb-6">
@@ -1210,7 +1206,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 placeholder="Ders seçin"
               />
               <ScopeBadge scope={scope} showText />
-            </div>
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1230,7 +1225,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
         {activeTab === 'table' && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-200">
               <div className="flex items-center justify-between">
                 <div>
@@ -1240,7 +1234,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 <div className="flex items-center gap-3">
                   <ScopeBadge scope={scope} showText />
                   <button
-                  <button
                     onClick={() => setIsAdding(true)}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
                   >
@@ -1249,7 +1242,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   </button>
                 </div>
               </div>
-            </div>
             </div>
             <TestResultsTable
               results={sortedResults}
@@ -1266,7 +1258,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               isCompact={false}
             />
           </div>
-          </div>
         )}
       </main>
 
@@ -1281,7 +1272,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
       <MistakeModal
         isOpen={mistakeModal.isOpen}
-        isOpen={mistakeModal.isOpen}
         dersAdi={mistakeModal.result?.dersAdi || ''}
         topicOptions={getCourseTopics(mistakeModal.result?.dersAdi || '')}
         onClose={() => setMistakeModal({ isOpen: false })}
@@ -1290,7 +1280,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
       <ChartModal
         isOpen={chartModal.isOpen}
-        onClose={() => setChartModal({ isOpen: false })}
         onClose={() => setChartModal({ isOpen: false })}
       >
         {chartModal.type === 'timeseries' && (
@@ -1312,7 +1301,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         )}
       </ChartModal>
 
-
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         message={confirmModal.message || ''}
@@ -1322,7 +1310,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
       {toast && (
         <Toast
-        <Toast
           message={toast.message}
           type={toast.type}
           onClose={() => setToast(null)}
@@ -1331,6 +1318,5 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     </div>
   );
 };
-
 
 export default Dashboard;
