@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, where, Timestamp } from 'firebase/firestore';
-import { User } from 'firebase/auth';
-import { db } from '../services/firebase';
+import { signOut, User } from 'firebase/auth';
+import { db, auth } from '../services/firebase';
 import type { MistakeEntry } from '../types';
+import Header from './Header';
 import Toast from './Toast';
 import ConfirmModal from './ConfirmModal';
 import { getCourseTopics } from '../data/topics';
@@ -275,6 +276,7 @@ const MistakesPage: React.FC<MistakesPageProps> = ({ user }) => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        <Header user={user} onLogout={() => signOut(auth)} />
         <div className="flex items-center justify-center h-96">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
@@ -284,6 +286,7 @@ const MistakesPage: React.FC<MistakesPageProps> = ({ user }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      <Header user={user} onLogout={() => signOut(auth)} />
       <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
         <div className="mb-8">
