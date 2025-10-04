@@ -1273,7 +1273,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       <MistakeModal
         isOpen={mistakeModal.isOpen}
         dersAdi={mistakeModal.result?.dersAdi || ''}
-        topicOptions={getCourseTopics(mistakeModal.result?.dersAdi || '')}
+        topicOptions={getCourseTopics(mistakeModal.result?.dersAdi || '').map(t => t.name)}
         onClose={() => setMistakeModal({ isOpen: false })}
         onSave={handleSaveMistake}
       />

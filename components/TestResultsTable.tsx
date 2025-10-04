@@ -117,17 +117,17 @@ const InputRow: React.FC<InputRowProps> = ({ onAddResult, currentUserEmail, onCa
                 <div className={`border border-gray-300 rounded ${isCompact ? 'p-1' : 'p-1.5'} bg-white max-h-20 overflow-auto`}> 
                   <div className="grid grid-cols-1 gap-1">
                     {getCourseTopics(dersAdi).map((t) => {
-                      const checked = topics[0] === t;
+                      const checked = topics[0] === t.name;
                       return (
-                        <label key={t} className="inline-flex items-center gap-1 text-[10px] text-gray-700">
+                        <label key={t.id} className="inline-flex items-center gap-1 text-[10px] text-gray-700">
                           <input
                             type="radio"
                             name="topic-select-add"
                             className="h-3 w-3 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                             checked={checked}
-                            onChange={() => setTopics([t])}
+                            onChange={() => setTopics([t.name])}
                           />
-                          <span>{t}</span>
+                          <span>{t.name}</span>
                         </label>
                       );
                     })}
@@ -352,17 +352,17 @@ const TestResultsTable: React.FC<TestResultsTableProps> = ({ results, currentUse
                         <div className={`border border-gray-300 rounded ${isCompact ? 'p-1' : 'p-1.5'} bg-white max-h-20 overflow-auto`}>
                           <div className="grid grid-cols-1 gap-1">
                             {getCourseTopics(editFormData.dersAdi).map((t) => {
-                              const checked = (editFormData.topics[0] || '') === t;
+                              const checked = (editFormData.topics[0] || '') === t.name;
                               return (
-                                <label key={t} className="inline-flex items-center gap-1 text-[10px] text-gray-700">
+                                <label key={t.id} className="inline-flex items-center gap-1 text-[10px] text-gray-700">
                                   <input
                                     type="radio"
                                     name={`topic-select-${editingId || 'edit'}`}
                                     className="h-3 w-3 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                                     checked={checked}
-                                    onChange={() => setEditFormData((prev) => ({ ...prev, topics: [t] }))}
+                                    onChange={() => setEditFormData((prev) => ({ ...prev, topics: [t.name] }))}
                                   />
-                                  <span>{t}</span>
+                                  <span>{t.name}</span>
                                 </label>
                               );
                             })}

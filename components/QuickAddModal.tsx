@@ -152,7 +152,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ isOpen, onClose, onSave, 
             >
               <option value="">— Seçim yok —</option>
               {getCourseTopics(ders).map((t)=> (
-                <option key={t} value={t}>{t}</option>
+                <option key={t.id} value={t.name}>{t.name}</option>
               ))}
             </select>
           </div>
