@@ -5,6 +5,7 @@ import Auth from './components/Auth';
 import Dashboard from './components/Dashboard';
 import MistakesPage from './components/MistakesPage';
 import ExamsPage from './components/ExamsPage';
+import ProfilePage from './components/ProfilePage';
 import Spinner from './components/Spinner';
 import VerifyEmail from './components/VerifyEmail';
 
@@ -36,7 +37,7 @@ const App: React.FC = () => {
         </div>
       );
     }
-    
+
     if (user) {
       if (!user.emailVerified) {
         return <VerifyEmail />;
@@ -52,6 +53,13 @@ const App: React.FC = () => {
         return (
           <div className="min-h-screen bg-gray-100">
             <ExamsPage user={user} />
+          </div>
+        );
+      }
+      if (route === 'profile') {
+        return (
+          <div className="min-h-screen bg-gray-100">
+            <ProfilePage user={user} />
           </div>
         );
       }
