@@ -366,7 +366,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
   // Branş Bazlı Detaylı Analiz
   const subjectAnalysis = useMemo(() => {
-    const userData = results.filter(r => r.kullaniciId === user.uid);
+    const userData = filteredData;
     const subjects = ['Türkçe', 'Matematik', 'Fen Bilgisi', 'Sosyal Bilgiler', 'Din Kültürü', 'İngilizce'];
     
     return subjects.map(subject => {
@@ -387,7 +387,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
       return { subject, avgScore: Math.round(avgScore), trend: Math.round(trend), lastScore: Math.round(lastScore), improvement: Math.round(improvement) };
     });
-  }, [results, user.uid]);
+  }, [filteredData]);
 
   // Haftalık Çalışma Önerisi
   const weeklyStudyPlan = useMemo(() => {
@@ -414,7 +414,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
   // Daily activity data for the last 30 days
   const dailyActivityData = useMemo(() => {
-    const userData = results.filter(r => r.kullaniciId === user.uid);
+    const userData = filteredData;
     const last30Days = [];
     const today = new Date();
     
@@ -442,11 +442,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     }
     
     return last30Days;
-  }, [results, user.uid]);
+  }, [filteredData]);
 
   // Subject distribution data
   const subjectDistributionData = useMemo(() => {
-    const userData = results.filter(r => r.kullaniciId === user.uid);
+    const userData = filteredData;
     const distribution: { [key: string]: number } = {};
     
     userData.forEach(r => {
@@ -458,13 +458,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       value: distribution[subject],
       percentage: Math.round((distribution[subject] / userData.length) * 100)
     }));
-  }, [results, user.uid]);
+  }, [filteredData]);
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
 
   // Time of day analysis
   const timeAnalysisData = useMemo(() => {
-    const userData = results.filter(r => r.kullaniciId === user.uid && r.createdAt);
+    const userData = filteredData.filter(r => r.createdAt);
     const timeSlots = {
       'Sabah (06-12)': 0,
       'Öğlen (12-18)': 0,
@@ -485,7 +485,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
       value: timeSlots[time as keyof typeof timeSlots],
       percentage: userData.length > 0 ? Math.round((timeSlots[time as keyof typeof timeSlots] / userData.length) * 100) : 0
     }));
-  }, [results, user.uid]);
+  }, [filteredData]);
 
   // Event handlers
   const handleAddResult = async (dersAdi: string, dogruSayisi: number, yanlisSayisi: number, bosSayisi: number, topics: string[]) => {
